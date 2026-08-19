@@ -1,0 +1,9 @@
+{
+  "name": "gvcn-ai-qr-fast-duck-vibrant",
+  "private": true,
+  "version": "1.1.0",
+  "type": "module",
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
