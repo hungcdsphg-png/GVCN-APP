@@ -1581,500 +1581,175 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 else if (gameId === 'ngon-tay-than-ky') window.initMagicFingerGame();
                 else if (gameId === 'quizz-nghieng-dau') window.initHeadTiltGame();
                 else if (gameId === 'quet-the-qr') window.initQRQuizGame();
-                else if (gameId === 'duoi-hinh-bat-chu') window.initDuoiHinhGame();
+                else if (gameId === 'duoi-hinh-bat-chu') window.initDuoiHinhBatChu();
             }, 50);
         };
 
 
         // =============================================================
         // ĐUỔI HÌNH BẮT CHỮ
-        // Thư viện riêng + Gemini tạo nội dung/hình + fullscreen + âm thanh
-        // Ảnh AI/file tải lên được lưu trong IndexedDB để không làm phình state/localStorage.
+        // Thư viện riêng + AI tạo nội dung + Nano Banana tạo ảnh.
+        // Ảnh AI được lưu IndexedDB để không làm phình localStorage/state.
         // =============================================================
-        const DH_IMAGE_DB = 'gvcn-duoi-hinh-images-v1';
-        const DH_IMAGE_STORE = 'images';
-        window.duoiHinhRuntime = window.duoiHinhRuntime || { timer: null, assetUrls: new Map() };
+        window.duoiHinhRuntime = window.duoiHinhRuntime || { timer: null, imageDb: null };
 
         function ensureDuoiHinhState() {
             if (!state.duoiHinhGame) {
+                const inferred = Number(String(state.admin?.className || '').match(/[1-5]/)?.[0]) || 3;
                 state.duoiHinhGame = {
                     view: 'config',
-                    settings: {
-                        grade: inferHomeroomGrade(),
-                        timeLimit: 30,
-                        soundEnabled: true,
-                        topic: 'Vốn từ và kiến thức phù hợp lứa tuổi'
-                    },
+                    settings: { title: 'Đuổi Hình Bắt Chữ', grade: inferred, timeLimit: 30, soundEnabled: true, imageProvider: 'gemini' },
                     questions: [],
                     questionLibrary: [],
                     play: null
                 };
             }
             const g = state.duoiHinhGame;
-            if (!g.settings) g.settings = {};
-            if (!g.settings.grade) g.settings.grade = inferHomeroomGrade();
-            if (!g.settings.timeLimit) g.settings.timeLimit = 30;
-            if (typeof g.settings.soundEnabled !== 'boolean') g.settings.soundEnabled = true;
+            if (!g.settings) g.settings = { title: 'Đuổi Hình Bắt Chữ', grade: 3, timeLimit: 30, soundEnabled: true, imageProvider: 'gemini' };
             if (!Array.isArray(g.questions)) g.questions = [];
             if (!Array.isArray(g.questionLibrary)) g.questionLibrary = [];
-            g.questionLibrary = g.questionLibrary.map(q => normalizeDuoiHinhQuestion(q));
-            g.questions = g.questions.map(q => normalizeDuoiHinhQuestion(q));
             return g;
         }
 
-        function normalizeDuoiHinhQuestion(q = {}) {
-            return {
-                id: q.id || `dhq_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
-                grade: q.grade || inferHomeroomGrade(),
-                answer: String(q.answer || '').trim(),
-                hint: String(q.hint || '').trim(),
-                imageAssetIds: Array.isArray(q.imageAssetIds) ? q.imageAssetIds.filter(Boolean) : [],
-                imageUrls: Array.isArray(q.imageUrls) ? q.imageUrls.filter(Boolean) : [],
-                imagePrompts: Array.isArray(q.imagePrompts) ? q.imagePrompts.filter(Boolean) : [],
-                source: q.source || 'manual',
-                createdAt: q.createdAt || new Date().toISOString()
-            };
-        }
+        function dhbcEsc(v) { return mfgEsc(v); }
+        function dhbcUid(prefix='dhbc') { return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,9)}`; }
 
-        function cloneDuoiHinhQuestion(q) {
-            return normalizeDuoiHinhQuestion(JSON.parse(JSON.stringify(q)));
-        }
-
-        function openDuoiHinhDb() {
+        function dhbcOpenImageDb() {
+            if (window.duoiHinhRuntime.imageDb) return Promise.resolve(window.duoiHinhRuntime.imageDb);
             return new Promise((resolve, reject) => {
-                if (!window.indexedDB) return reject(new Error('Trình duyệt không hỗ trợ IndexedDB.'));
-                const req = indexedDB.open(DH_IMAGE_DB, 1);
-                req.onupgradeneeded = () => {
-                    const db = req.result;
-                    if (!db.objectStoreNames.contains(DH_IMAGE_STORE)) db.createObjectStore(DH_IMAGE_STORE, { keyPath: 'id' });
-                };
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => reject(req.error || new Error('Không mở được kho ảnh.'));
-            });
-        }
-
-        async function storeDuoiHinhBlob(blob) {
-            const db = await openDuoiHinhDb();
-            const id = `dhimg_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
-            await new Promise((resolve, reject) => {
-                const tx = db.transaction(DH_IMAGE_STORE, 'readwrite');
-                tx.objectStore(DH_IMAGE_STORE).put({ id, blob, createdAt: Date.now() });
-                tx.oncomplete = resolve;
-                tx.onerror = () => reject(tx.error || new Error('Không lưu được ảnh.'));
-            });
-            db.close();
-            return id;
-        }
-
-        async function storeDuoiHinhBase64(data, mimeType = 'image/png') {
-            const binary = atob(data);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            return storeDuoiHinhBlob(new Blob([bytes], { type: mimeType }));
-        }
-
-        async function getDuoiHinhAssetUrl(assetId) {
-            if (!assetId) return '';
-            if (window.duoiHinhRuntime.assetUrls.has(assetId)) return window.duoiHinhRuntime.assetUrls.get(assetId);
-            const db = await openDuoiHinhDb();
-            const record = await new Promise((resolve, reject) => {
-                const tx = db.transaction(DH_IMAGE_STORE, 'readonly');
-                const req = tx.objectStore(DH_IMAGE_STORE).get(assetId);
-                req.onsuccess = () => resolve(req.result || null);
+                const req = indexedDB.open('GVCN_DHBC_IMAGES', 1);
+                req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains('images')) req.result.createObjectStore('images'); };
+                req.onsuccess = () => { window.duoiHinhRuntime.imageDb = req.result; resolve(req.result); };
                 req.onerror = () => reject(req.error);
             });
-            db.close();
-            if (!record?.blob) return '';
-            const url = URL.createObjectURL(record.blob);
-            window.duoiHinhRuntime.assetUrls.set(assetId, url);
-            return url;
         }
-
-        async function hydrateDuoiHinhImages(root = document) {
-            const nodes = [...root.querySelectorAll('[data-dh-asset]')];
-            await Promise.all(nodes.map(async img => {
-                const id = img.getAttribute('data-dh-asset');
-                try {
-                    const url = await getDuoiHinhAssetUrl(id);
-                    if (url) img.src = url;
-                } catch (e) { console.warn('Không tải được ảnh Đuổi hình:', e); }
+        async function dhbcStoreImage(dataUrl) {
+            const key = dhbcUid('img'); const db = await dhbcOpenImageDb();
+            await new Promise((resolve,reject)=>{ const tx=db.transaction('images','readwrite'); tx.objectStore('images').put(dataUrl,key); tx.oncomplete=resolve; tx.onerror=()=>reject(tx.error); });
+            return key;
+        }
+        async function dhbcGetImage(key) {
+            if (!key) return '';
+            try { const db=await dhbcOpenImageDb(); return await new Promise((resolve,reject)=>{ const r=db.transaction('images','readonly').objectStore('images').get(key); r.onsuccess=()=>resolve(r.result||''); r.onerror=()=>reject(r.error); }); } catch { return ''; }
+        }
+        async function dhbcDeleteImage(key) {
+            if (!key) return;
+            try { const db=await dhbcOpenImageDb(); await new Promise((resolve)=>{ const tx=db.transaction('images','readwrite'); tx.objectStore('images').delete(key); tx.oncomplete=resolve; tx.onerror=resolve; }); } catch {}
+        }
+        window.hydrateDhbcImages = async function() {
+            const els = [...document.querySelectorAll('[data-dhbc-image-key]')];
+            await Promise.all(els.map(async el => {
+                if (el.dataset.loaded === '1') return;
+                const src = await dhbcGetImage(el.dataset.dhbcImageKey);
+                if (src) { el.src = src; el.dataset.loaded='1'; }
             }));
+        };
+        function dhbcImageGridHtml(q, large=false) {
+            const keys = Array.isArray(q.imageKeys) ? q.imageKeys : [];
+            const urls = Array.isArray(q.imageUrls) ? q.imageUrls.filter(Boolean) : [];
+            const items = [
+                ...keys.map(k => `<img data-dhbc-image-key="${dhbcEsc(k)}" class="w-full ${large?'h-full min-h-[180px] md:min-h-[260px]':'h-24'} object-contain rounded-2xl bg-white border border-slate-100" alt="Hình gợi ý">`),
+                ...urls.map(u => `<img src="${dhbcEsc(u)}" class="w-full ${large?'h-full min-h-[180px] md:min-h-[260px]':'h-24'} object-contain rounded-2xl bg-white border border-slate-100" alt="Hình gợi ý">`)
+            ];
+            if (!items.length) return `<div class="col-span-full rounded-2xl border-2 border-dashed border-cyan-200 bg-cyan-50/60 min-h-[120px] flex items-center justify-center text-cyan-500 font-bold"><i class="ph-fill ph-image text-3xl mr-2"></i> Chưa có ảnh</div>`;
+            const cols = items.length <= 1 ? 'grid-cols-1' : items.length === 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3';
+            return `<div class="grid ${cols} gap-3 w-full h-full">${items.join('')}</div>`;
         }
 
-        function duoiHinhImageHtml(q, mode = 'play') {
-            const urls = [...(q.imageUrls || [])];
-            const assets = [...(q.imageAssetIds || [])];
-            const total = urls.length + assets.length;
-            if (!total) return `<div class="w-full aspect-[4/3] rounded-2xl bg-slate-100 border-2 border-dashed border-slate-200 flex items-center justify-center text-slate-400"><div class="text-center"><i class="ph-fill ph-image-broken text-4xl"></i><div class="text-xs font-bold mt-2">Chưa có hình</div></div></div>`;
-            const thumb = mode === 'thumb';
-            const boxClass = thumb ? 'aspect-[4/3] rounded-xl' : 'aspect-[4/3] rounded-[1.5rem] md:rounded-[2rem]';
-            const common = `${boxClass} w-full object-contain bg-white border border-slate-200 shadow-sm`;
-            return [
-                ...urls.map(url => `<img src="${escapeHtmlAttr(url)}" class="${common}" alt="Hình gợi ý" loading="lazy" onerror="this.style.opacity=.25">`),
-                ...assets.map(id => `<img data-dh-asset="${escapeHtmlAttr(id)}" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='450'%3E%3Crect width='100%25' height='100%25' fill='%23f1f5f9'/%3E%3C/svg%3E" class="${common}" alt="Hình gợi ý AI">`)
-            ].join('');
-        }
-
-        function duoiHinhGridClass(count) {
-            if (count <= 1) return 'grid-cols-1 max-w-3xl';
-            if (count === 2) return 'grid-cols-1 sm:grid-cols-2 max-w-5xl';
-            return 'grid-cols-2 lg:grid-cols-3 max-w-6xl';
-        }
-
-        function countDuoiHinhImages(q) { return (q.imageUrls?.length || 0) + (q.imageAssetIds?.length || 0); }
-
-        async function duoiHinhSound(type) {
-            const g = ensureDuoiHinhState();
-            if (!g.settings.soundEnabled || !window.Tone) return;
+        async function dhbcSound(kind) {
+            if (!ensureDuoiHinhState().settings.soundEnabled) return;
             try {
-                if (Tone.context.state !== 'running') await Tone.start();
-                const synth = new Tone.Synth({ envelope: { attack: 0.005, decay: 0.08, sustain: 0.04, release: 0.12 } }).toDestination();
-                synth.volume.value = -12;
-                const notes = { start: 'C5', tick: 'E5', reveal: 'G5', next: 'D5', timeup: 'C4', win: 'C6' };
-                synth.triggerAttackRelease(notes[type] || 'C5', type === 'win' ? '4n' : '16n');
-                setTimeout(() => { try { synth.dispose(); } catch {} }, 500);
-            } catch (e) {}
+                if (window.Tone && Tone.context.state !== 'running') await Tone.start();
+                if (!window.Tone) return;
+                if (kind === 'start') new Tone.PolySynth().toDestination().triggerAttackRelease(['C4','E4','G4'],'8n');
+                else if (kind === 'next') new Tone.Synth().toDestination().triggerAttackRelease('G5','16n');
+                else if (kind === 'timeout') new Tone.Synth({oscillator:{type:'square'}}).toDestination().triggerAttackRelease('C3','4n');
+                else if (kind === 'answer') new Tone.PolySynth().toDestination().triggerAttackRelease(['C5','E5','G5'],'4n');
+            } catch(e) {}
         }
+
+        window.cleanupDuoiHinhGame = function(exitFs=false) {
+            if (window.duoiHinhRuntime.timer) { clearInterval(window.duoiHinhRuntime.timer); window.duoiHinhRuntime.timer=null; }
+            if (exitFs && window.isInteractiveGameFullscreen?.()) window.exitInteractiveGameFullscreen();
+        };
 
         window.updateDuoiHinhSetting = function(key, value) {
-            const g = ensureDuoiHinhState();
-            g.settings[key] = key === 'timeLimit' ? Math.max(5, Math.min(180, Number(value) || 30)) : value;
-            saveData();
-            window.initDuoiHinhGame();
+            const g=ensureDuoiHinhState();
+            if (key === 'grade' || key === 'timeLimit') value = Number(value);
+            if (key === 'soundEnabled') value = !!value;
+            g.settings[key]=value; saveData();
+            if (key === 'grade') window.initDuoiHinhBatChu();
         };
 
-        window.openDuoiHinhAddEditModal = function(questionId = null) {
-            const g = ensureDuoiHinhState();
-            const q = questionId ? g.questionLibrary.find(x => String(x.id) === String(questionId)) : null;
-            const data = q || normalizeDuoiHinhQuestion({ grade: g.settings.grade });
-            const grades = [1,2,3,4,5].map(n => `<option value="Lớp ${n}" ${data.grade === `Lớp ${n}` ? 'selected' : ''}>Khối ${n}</option>`).join('');
-            document.getElementById('modal-container').innerHTML = `
-                <div class="fixed inset-0 z-[230] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 md:p-5 animate-fade-in">
-                    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
-                        <div class="p-5 md:p-6 bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 text-white flex items-center justify-between">
-                            <div><div class="text-xs font-black text-cyan-100 uppercase tracking-widest">Đuổi hình bắt chữ</div><h3 class="text-xl font-black">${q ? 'Sửa câu hỏi' : 'Thêm câu hỏi'}</h3></div>
-                            <button onclick="document.getElementById('modal-container').innerHTML=''" class="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25"><i class="ph-bold ph-x"></i></button>
-                        </div>
-                        <div class="p-5 md:p-6 overflow-y-auto custom-scrollbar space-y-4 bg-slate-50">
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <div><label class="text-xs font-black text-slate-500">KHỐI</label><select id="dh-edit-grade" class="mt-1 w-full p-3 bg-white border border-slate-300 rounded-xl font-bold">${grades}</select></div>
-                                <div class="sm:col-span-2"><label class="text-xs font-black text-slate-500">ĐÁP ÁN</label><input id="dh-edit-answer" value="${escapeHtmlAttr(data.answer)}" placeholder="VD: Hoa hồng" class="mt-1 w-full p-3 bg-white border border-slate-300 rounded-xl font-black"></div>
-                            </div>
-                            <div><label class="text-xs font-black text-slate-500">GỢI Ý / CÂU HỎI</label><input id="dh-edit-hint" value="${escapeHtmlAttr(data.hint)}" placeholder="Gợi ý ngắn, không làm lộ đáp án" class="mt-1 w-full p-3 bg-white border border-slate-300 rounded-xl font-bold"></div>
-                            <div><label class="text-xs font-black text-slate-500">LINK HÌNH ẢNH <span class="font-medium">(mỗi dòng 1 link, có thể để trống)</span></label><textarea id="dh-edit-urls" rows="3" placeholder="https://...\nhttps://..." class="mt-1 w-full p-3 bg-white border border-slate-300 rounded-xl text-sm">${mfgEsc((data.imageUrls || []).join('\n'))}</textarea></div>
-                            <div class="bg-white border border-slate-200 rounded-2xl p-4">
-                                <label class="text-xs font-black text-slate-500">TẢI HÌNH TỪ MÁY <span class="font-medium">(chọn nhiều hình)</span></label>
-                                <input id="dh-edit-files" type="file" accept="image/*" multiple class="mt-2 block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-cyan-50 file:text-cyan-700 file:font-black">
-                                ${q && countDuoiHinhImages(q) ? `<div class="mt-2 text-xs text-slate-500">Câu hiện tại có <b>${countDuoiHinhImages(q)}</b> hình. Ảnh tải thêm sẽ được <b>thêm vào</b> ảnh hiện có.</div>` : ''}
-                            </div>
-                            <button id="dh-save-question-btn" onclick="saveDuoiHinhQuestion('${q ? escapeInlineJs(String(q.id)) : ''}')" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-black shadow-lg"><i class="ph-fill ph-floppy-disk mr-1"></i> LƯU CÂU HỎI</button>
-                        </div>
-                    </div>
-                </div>`;
+        window.initDuoiHinhBatChu = function() {
+            const c=document.getElementById('game-mount-point'); if(!c) return;
+            const g=ensureDuoiHinhState();
+            if (g.view === 'play') return renderDuoiHinhPlay();
+            const rows=(g.questions||[]).map((q,i)=>`<div class="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-start"><div class="w-full md:w-52">${dhbcImageGridHtml(q,false)}</div><div class="flex-1 min-w-0"><div class="flex flex-wrap gap-2 mb-2"><span class="px-2 py-1 rounded-lg bg-cyan-50 text-cyan-700 text-[10px] font-black">KHỐI ${q.grade||g.settings.grade}</span><span class="px-2 py-1 rounded-lg bg-purple-50 text-purple-700 text-[10px] font-black">${dhbcEsc(q.topic||'Chung')}</span></div><div class="font-black text-slate-800">${dhbcEsc(q.hint||'Đoán từ/cụm từ qua hình ảnh')}</div><div class="text-sm text-slate-500 mt-1">Đáp án: <b>${dhbcEsc(q.answer)}</b></div></div><button onclick="removeDuoiHinhActiveQuestion('${dhbcEsc(q.id)}')" class="w-9 h-9 rounded-xl bg-red-50 text-red-500 hover:bg-red-100"><i class="ph-bold ph-trash"></i></button></div>`).join('');
+            c.innerHTML=`<div class="w-full min-h-full p-4 md:p-6 bg-gradient-to-br from-cyan-50 via-white to-amber-50 rounded-[1.5rem] overflow-auto custom-scrollbar"><div class="max-w-6xl mx-auto space-y-5"><div class="rounded-[2rem] bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-500 text-white p-6 shadow-lg flex flex-col md:flex-row gap-4 justify-between md:items-center"><div><div class="text-xs font-black uppercase tracking-[.2em] text-cyan-100">Trò chơi hình ảnh</div><h3 class="text-2xl md:text-3xl font-black mt-1">🖼️ Đuổi Hình Bắt Chữ</h3><p class="text-sm text-cyan-50 mt-1">Nhìn hình – đoán từ – học mà chơi</p></div><div class="flex flex-wrap gap-2"><button onclick="openDuoiHinhAIModal()" class="px-4 py-3 bg-fuchsia-600 hover:bg-fuchsia-700 rounded-xl font-black text-sm shadow"><i class="ph-fill ph-sparkle mr-1"></i> Tạo câu hỏi AI</button><button onclick="openDuoiHinhLibrary()" class="px-4 py-3 bg-white/15 hover:bg-white/25 border border-white/20 rounded-xl font-black text-sm"><i class="ph-fill ph-books mr-1"></i> Thư viện (${g.questionLibrary.length})</button><button onclick="openDuoiHinhEditModal()" class="px-4 py-3 bg-white text-cyan-700 rounded-xl font-black text-sm"><i class="ph-bold ph-plus mr-1"></i> Thêm thủ công</button></div></div><div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"><label class="text-xs font-black text-slate-500">KHỐI LỚP<select onchange="updateDuoiHinhSetting('grade',this.value)" class="mt-2 w-full p-3 rounded-xl border border-slate-200 bg-white text-slate-800 font-bold">${[1,2,3,4,5].map(n=>`<option value="${n}" ${g.settings.grade==n?'selected':''}>Khối ${n}</option>`).join('')}</select></label><label class="text-xs font-black text-slate-500">THỜI GIAN / CÂU<input type="number" min="5" max="180" value="${g.settings.timeLimit}" onchange="updateDuoiHinhSetting('timeLimit',this.value)" class="mt-2 w-full p-3 rounded-xl border border-slate-200 font-bold"> </label><label class="text-xs font-black text-slate-500">ÂM THANH<div class="mt-2 h-[46px] flex items-center"><label class="flex items-center gap-2 font-bold text-slate-700"><input type="checkbox" ${g.settings.soundEnabled?'checked':''} onchange="updateDuoiHinhSetting('soundEnabled',this.checked)" class="accent-cyan-600 w-5 h-5"> Bật âm thanh</label></div></label></div><div class="bg-white rounded-2xl border border-slate-200 overflow-hidden"><div class="p-4 border-b bg-slate-50 flex flex-wrap items-center justify-between gap-3"><div><div class="font-black text-slate-800">Bộ câu hỏi đang chọn (${g.questions.length})</div><div class="text-xs text-slate-500">Chọn câu từ thư viện rồi bắt đầu chơi.</div></div><button onclick="startDuoiHinhGame()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black shadow-lg hover:-translate-y-0.5 transition"><i class="ph-fill ph-play mr-1"></i> BẮT ĐẦU</button></div><div class="p-4 space-y-3">${rows||`<div class="py-12 text-center text-slate-400 font-bold"><i class="ph-fill ph-books text-5xl mb-2 block"></i>Chưa có câu hỏi. Hãy tạo bằng AI hoặc chọn từ thư viện.</div>`}</div></div><div class="rounded-2xl bg-indigo-50 border border-indigo-100 p-4 text-sm text-indigo-800 flex flex-col md:flex-row gap-3 md:items-center justify-between"><div><b>Tạo ảnh AI:</b> mặc định dùng Gemini Nano Banana qua API Key đã nhập. Kiến trúc provider tách riêng để có thể đổi nguồn ảnh sau này.</div><button onclick="window.open('https://flow.google','_blank','noopener')" class="px-4 py-2 bg-white border border-indigo-200 rounded-xl font-black whitespace-nowrap"><i class="ph-bold ph-arrow-square-out mr-1"></i> Mở Google Flow</button></div></div></div>`;
+            setTimeout(window.hydrateDhbcImages,0);
         };
 
-        window.saveDuoiHinhQuestion = async function(questionId = '') {
-            const g = ensureDuoiHinhState();
-            const answer = document.getElementById('dh-edit-answer')?.value.trim();
-            const hint = document.getElementById('dh-edit-hint')?.value.trim();
-            const grade = document.getElementById('dh-edit-grade')?.value || g.settings.grade;
-            const urls = (document.getElementById('dh-edit-urls')?.value || '').split(/\n+/).map(v => v.trim()).filter(Boolean);
-            if (!answer) return showToast('Vui lòng nhập đáp án!', 'error');
-            if (!hint) return showToast('Vui lòng nhập gợi ý!', 'error');
-            const btn = document.getElementById('dh-save-question-btn');
-            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Đang lưu hình...'; }
-            try {
-                const current = questionId ? g.questionLibrary.find(x => String(x.id) === String(questionId)) : null;
-                const assetIds = [...(current?.imageAssetIds || [])];
-                const files = [...(document.getElementById('dh-edit-files')?.files || [])].slice(0, 8);
-                for (const file of files) assetIds.push(await storeDuoiHinhBlob(file));
-                if (!urls.length && !assetIds.length) return showToast('Hãy thêm ít nhất 1 hình ảnh!', 'error');
-                const next = normalizeDuoiHinhQuestion({
-                    ...(current || {}), id: current?.id || undefined, grade, answer, hint,
-                    imageUrls: urls, imageAssetIds: assetIds, source: current?.source || 'manual'
-                });
-                if (current) Object.assign(current, next);
-                else g.questionLibrary.unshift(next);
-                saveData();
-                document.getElementById('modal-container').innerHTML = '';
-                showToast(current ? 'Đã cập nhật câu hỏi!' : 'Đã thêm vào thư viện!', 'success');
-                window.openDuoiHinhLibrary();
-            } catch (e) { showToast(`Không lưu được câu hỏi: ${e.message}`, 'error'); }
-            finally { if (btn) btn.disabled = false; }
+        window.removeDuoiHinhActiveQuestion = function(id){ const g=ensureDuoiHinhState(); g.questions=g.questions.filter(q=>String(q.id)!==String(id)); saveData(); window.initDuoiHinhBatChu(); };
+
+        window.openDuoiHinhAIModal = function() {
+            const g=ensureDuoiHinhState();
+            document.getElementById('modal-container').innerHTML=`<div class="fixed inset-0 z-[250] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"><div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden"><div class="p-6 bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white flex justify-between items-center"><div><div class="text-xs font-bold text-fuchsia-100">Đuổi Hình Bắt Chữ</div><h3 class="text-xl font-black">✨ Tạo câu hỏi + hình ảnh bằng AI</h3></div><button onclick="document.getElementById('modal-container').innerHTML=''" class="w-9 h-9 rounded-full bg-white/10"><i class="ph-bold ph-x"></i></button></div><div class="p-6 space-y-4 bg-slate-50"><div class="grid grid-cols-2 gap-3"><label class="text-xs font-black text-slate-500">KHỐI<select id="dhbc-ai-grade" class="mt-1 w-full p-3 rounded-xl border bg-white font-bold">${[1,2,3,4,5].map(n=>`<option value="${n}" ${g.settings.grade==n?'selected':''}>Khối ${n}</option>`).join('')}</select></label><label class="text-xs font-black text-slate-500">SỐ CÂU<input id="dhbc-ai-count" type="number" min="1" max="10" value="5" class="mt-1 w-full p-3 rounded-xl border bg-white font-bold"></label></div><label class="block text-xs font-black text-slate-500">CHỦ ĐỀ<input id="dhbc-ai-topic" placeholder="VD: Đồ dùng học tập, thiên nhiên, Tiếng Việt..." class="mt-1 w-full p-3 rounded-xl border bg-white font-bold"></label><div class="rounded-xl border border-cyan-100 bg-cyan-50 p-3 text-xs text-cyan-800"><b>AI sẽ tự tạo:</b> đáp án + gợi ý + 1–3 prompt hình ảnh an toàn theo đúng khối, sau đó tự sinh ảnh bằng Nano Banana và đưa tất cả vào thư viện.</div><button id="dhbc-ai-btn" onclick="generateDuoiHinhAI()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white font-black shadow-lg"><i class="ph-fill ph-sparkle mr-1"></i> TẠO CÂU HỎI</button><div id="dhbc-ai-progress" class="hidden text-center text-xs font-bold text-indigo-600"></div><button onclick="window.open('https://flow.google','_blank','noopener')" class="w-full py-3 rounded-xl bg-white border-2 border-indigo-100 text-indigo-700 font-black"><i class="ph-bold ph-arrow-square-out mr-1"></i> Mở Google Flow để tạo ảnh thủ công</button></div></div></div>`;
         };
 
-        window.deleteDuoiHinhLibraryQuestion = function(questionId) {
-            const g = ensureDuoiHinhState();
-            const q = g.questionLibrary.find(x => String(x.id) === String(questionId));
-            if (!q || !confirm(`Xóa câu "${q.answer}" khỏi thư viện?`)) return;
-            g.questionLibrary = g.questionLibrary.filter(x => String(x.id) !== String(questionId));
-            saveData();
-            window.openDuoiHinhLibrary();
-        };
-
-        window.clearDuoiHinhLibrary = function() {
-            const g = ensureDuoiHinhState();
-            if (!g.questionLibrary.length) return showToast('Thư viện đang trống!', 'error');
-            if (!confirm(`Xóa tất cả ${g.questionLibrary.length} câu hỏi Đuổi hình bắt chữ?`)) return;
-            g.questionLibrary = [];
-            saveData();
-            window.openDuoiHinhLibrary();
-            showToast('Đã xóa tất cả câu hỏi trong thư viện.', 'success');
-        };
-
-        window.openDuoiHinhLibrary = function(filterGrade = null) {
-            const g = ensureDuoiHinhState();
-            const selectedGrade = filterGrade || g.settings.grade || 'Tất cả';
-            const visible = selectedGrade === 'Tất cả' ? g.questionLibrary : g.questionLibrary.filter(q => q.grade === selectedGrade);
-            const rows = visible.length ? visible.map(q => {
-                const imgs = duoiHinhImageHtml(q, 'thumb');
-                return `<label class="block bg-white rounded-2xl border border-slate-200 p-3 hover:border-cyan-300 hover:shadow-md transition-all cursor-pointer">
-                    <div class="flex gap-3 items-start">
-                        <input type="checkbox" class="dh-lib-check mt-2 w-5 h-5 accent-cyan-600" value="${escapeHtmlAttr(String(q.id))}">
-                        <div class="w-24 sm:w-32 flex-shrink-0 grid grid-cols-2 gap-1">${imgs}</div>
-                        <div class="flex-1 min-w-0">
-                            <div class="flex flex-wrap items-center gap-2"><span class="px-2 py-1 rounded-lg bg-cyan-50 text-cyan-700 text-[10px] font-black">${mfgEsc(q.grade)}</span>${q.source === 'ai' ? '<span class="px-2 py-1 rounded-lg bg-violet-50 text-violet-700 text-[10px] font-black">AI</span>' : ''}<span class="text-[10px] text-slate-400">${countDuoiHinhImages(q)} hình</span></div>
-                            <div class="font-black text-slate-800 mt-1 text-base">${mfgEsc(q.answer)}</div>
-                            <div class="text-xs text-slate-500 mt-1 line-clamp-2">${mfgEsc(q.hint)}</div>
-                            <div class="mt-2 flex gap-2"><button type="button" onclick="event.preventDefault();event.stopPropagation();openDuoiHinhAddEditModal('${escapeInlineJs(String(q.id))}')" class="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-black">Sửa</button><button type="button" onclick="event.preventDefault();event.stopPropagation();deleteDuoiHinhLibraryQuestion('${escapeInlineJs(String(q.id))}')" class="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-black">Xóa</button></div>
-                        </div>
-                    </div>
-                </label>`;
-            }).join('') : `<div class="py-14 text-center text-slate-400"><i class="ph-fill ph-books text-6xl"></i><div class="font-black text-lg mt-3">Thư viện chưa có câu hỏi cho ${mfgEsc(selectedGrade)}</div><div class="text-sm mt-1">Hãy tạo bằng AI hoặc thêm thủ công.</div></div>`;
-            const gradeOpts = ['Tất cả','Lớp 1','Lớp 2','Lớp 3','Lớp 4','Lớp 5'].map(v => `<option value="${v}" ${v === selectedGrade ? 'selected' : ''}>${v === 'Tất cả' ? 'Tất cả khối' : v.replace('Lớp','Khối')}</option>`).join('');
-            document.getElementById('modal-container').innerHTML = `
-                <div class="fixed inset-0 z-[220] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 md:p-5 animate-fade-in">
-                    <div class="bg-slate-50 rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[94vh] overflow-hidden flex flex-col">
-                        <div class="p-5 md:p-6 bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 text-white flex items-center justify-between">
-                            <div><div class="text-xs font-black text-cyan-100 uppercase tracking-[.18em]">Đuổi hình bắt chữ</div><h3 class="text-2xl font-black flex items-center gap-2"><i class="ph-fill ph-books"></i> THƯ VIỆN CÂU HỎI (${g.questionLibrary.length})</h3></div>
-                            <button onclick="document.getElementById('modal-container').innerHTML=''" class="w-11 h-11 rounded-full bg-white/15 hover:bg-white/25"><i class="ph-bold ph-x text-xl"></i></button>
-                        </div>
-                        <div class="p-4 border-b border-slate-200 bg-white flex flex-wrap items-center gap-2 justify-between">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <button onclick="document.querySelectorAll('.dh-lib-check').forEach(x=>x.checked=true)" class="px-3 py-2 text-cyan-700 font-black text-xs"><i class="ph-bold ph-check-square mr-1"></i> Chọn tất cả</button>
-                                <button onclick="document.querySelectorAll('.dh-lib-check').forEach(x=>x.checked=false)" class="px-3 py-2 text-slate-500 font-black text-xs">Bỏ chọn</button>
-                                <select onchange="openDuoiHinhLibrary(this.value)" class="px-3 py-2 rounded-xl border border-slate-200 font-bold text-xs">${gradeOpts}</select>
-                            </div>
-                            <div class="flex flex-wrap gap-2">
-                                <button onclick="openDuoiHinhAI()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white font-black text-xs"><i class="ph-fill ph-sparkle mr-1"></i> Tạo bằng AI</button>
-                                <button onclick="openDuoiHinhAddEditModal()" class="px-4 py-2 rounded-xl bg-cyan-600 text-white font-black text-xs"><i class="ph-bold ph-plus mr-1"></i> Thêm</button>
-                                <button onclick="clearDuoiHinhLibrary()" class="px-4 py-2 rounded-xl bg-red-50 text-red-600 border border-red-100 font-black text-xs"><i class="ph-bold ph-trash mr-1"></i> Xóa tất cả</button>
-                            </div>
-                        </div>
-                        <div class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">${rows}</div>
-                        <div class="p-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row gap-3 justify-between">
-                            <button onclick="document.getElementById('modal-container').innerHTML=''" class="px-5 py-3 rounded-xl bg-slate-100 text-slate-600 font-black">Đóng</button>
-                            <button onclick="addSelectedDuoiHinhToPlay()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-black shadow-lg"><i class="ph-bold ph-plus-circle mr-1"></i> ĐƯA CÂU ĐÃ CHỌN VÀO BỘ CHƠI</button>
-                        </div>
-                    </div>
-                </div>`;
-            setTimeout(() => hydrateDuoiHinhImages(document.getElementById('modal-container')), 0);
-        };
-
-        window.addSelectedDuoiHinhToPlay = function() {
-            const g = ensureDuoiHinhState();
-            const ids = [...document.querySelectorAll('.dh-lib-check:checked')].map(x => String(x.value));
-            if (!ids.length) return showToast('Hãy chọn ít nhất 1 câu!', 'error');
-            const picked = g.questionLibrary.filter(q => ids.includes(String(q.id))).map(cloneDuoiHinhQuestion);
-            const existing = new Set(g.questions.map(q => String(q.id)));
-            g.questions.push(...picked.filter(q => !existing.has(String(q.id))));
-            saveData();
-            document.getElementById('modal-container').innerHTML = '';
-            window.initDuoiHinhGame();
-            showToast(`Đã đưa ${picked.length} câu vào bộ chơi!`, 'success');
-        };
-
-        window.removeDuoiHinhPlayQuestion = function(questionId) {
-            const g = ensureDuoiHinhState();
-            g.questions = g.questions.filter(q => String(q.id) !== String(questionId));
-            saveData(); window.initDuoiHinhGame();
-        };
-
-        window.clearDuoiHinhPlayQuestions = function() {
-            const g = ensureDuoiHinhState();
-            if (!g.questions.length) return;
-            if (!confirm('Bỏ toàn bộ câu khỏi bộ chơi hiện tại? Thư viện vẫn được giữ nguyên.')) return;
-            g.questions = []; saveData(); window.initDuoiHinhGame();
-        };
-
-        async function callDuoiHinhAi(payload) {
-            const apiKey = getGameGeminiApiKey();
-            if (!apiKey) throw new Error('Chưa nhập Google Gemini API Key.');
-            const response = await fetch('/api/duoi-hinh', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'x-gemini-api-key': apiKey }, body: JSON.stringify(payload)
-            });
-            let data = null; try { data = await response.json(); } catch {}
-            if (!response.ok) throw new Error(data?.error || `AI lỗi ${response.status}`);
-            return data || {};
+        async function dhbcApi(path, payload) {
+            const apiKey=getGameGeminiApiKey(); if(!apiKey) throw new Error('Chưa cấu hình Gemini API Key.');
+            const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','x-gemini-api-key':apiKey},body:JSON.stringify(payload)});
+            const data=await r.json().catch(()=>({})); if(!r.ok) throw new Error(data.error||`Lỗi ${r.status}`); return data;
         }
-
-        window.openDuoiHinhAI = function() {
-            const g = ensureDuoiHinhState();
-            if (!getGameGeminiApiKey()) return showToast('Hãy nhập Gemini API trước!', 'error');
-            const grades = [1,2,3,4,5].map(n => `<option value="Lớp ${n}" ${g.settings.grade === `Lớp ${n}` ? 'selected' : ''}>Khối ${n}</option>`).join('');
-            document.getElementById('modal-container').innerHTML = `
-                <div class="fixed inset-0 z-[235] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 animate-fade-in">
-                    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden">
-                        <div class="p-6 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-blue-600 text-white flex justify-between items-center"><div><div class="text-xs font-black text-fuchsia-100">ĐUỔI HÌNH BẮT CHỮ</div><h3 class="text-xl font-black"><i class="ph-fill ph-sparkle mr-1"></i> AI tạo câu + hình minh họa</h3></div><button onclick="document.getElementById('modal-container').innerHTML=''" class="w-10 h-10 rounded-full bg-white/15"><i class="ph-bold ph-x"></i></button></div>
-                        <div class="p-6 bg-slate-50 space-y-4">
-                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                <div><label class="text-xs font-black text-slate-500">KHỐI</label><select id="dh-ai-grade" class="mt-1 w-full p-3 rounded-xl border bg-white font-black">${grades}</select></div>
-                                <div><label class="text-xs font-black text-slate-500">SỐ CÂU</label><input id="dh-ai-count" type="number" min="1" max="10" value="3" class="mt-1 w-full p-3 rounded-xl border bg-white font-black"></div>
-                                <div><label class="text-xs font-black text-slate-500">SỐ HÌNH/CÂU</label><select id="dh-ai-images" class="mt-1 w-full p-3 rounded-xl border bg-white font-black"><option value="1">1 hình</option><option value="2" selected>2 hình</option><option value="3">3 hình</option></select></div>
-                            </div>
-                            <div><label class="text-xs font-black text-slate-500">CHỦ ĐỀ</label><input id="dh-ai-topic" value="${escapeHtmlAttr(g.settings.topic || '')}" placeholder="VD: Tiếng Việt, thiên nhiên, trường học, từ ghép..." class="mt-1 w-full p-3 rounded-xl border bg-white font-bold"></div>
-                            <div class="p-3 rounded-xl bg-amber-50 border border-amber-100 text-[11px] text-amber-800"><b>AI sẽ làm 2 bước:</b> tạo đáp án + gợi ý đúng khối lớp, sau đó tạo từng hình minh họa. Tạo nhiều hình có thể mất thêm thời gian và sử dụng quota hình ảnh của Gemini.</div>
-                            <div id="dh-ai-progress" class="hidden p-3 rounded-xl bg-violet-50 text-violet-700 text-sm font-black"></div>
-                            <button id="dh-ai-btn" onclick="generateDuoiHinhAI()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white font-black shadow-lg"><i class="ph-fill ph-sparkle mr-1"></i> TẠO CÂU HỎI & HÌNH ẢNH</button>
-                        </div>
-                    </div>
-                </div>`;
-        };
-
+        async function dhbcGenerateImage(prompt) {
+            const data=await dhbcApi('/api/dhbc-image',{prompt,provider:'gemini'});
+            if(!data.dataUrl) throw new Error('Không nhận được ảnh AI.');
+            return dhbcStoreImage(data.dataUrl);
+        }
         window.generateDuoiHinhAI = async function() {
-            const g = ensureDuoiHinhState();
-            const grade = document.getElementById('dh-ai-grade')?.value || g.settings.grade;
-            const count = Math.max(1, Math.min(10, Number(document.getElementById('dh-ai-count')?.value) || 3));
-            const imagesPerQuestion = Math.max(1, Math.min(3, Number(document.getElementById('dh-ai-images')?.value) || 2));
-            const topic = document.getElementById('dh-ai-topic')?.value.trim() || 'Vốn từ và kiến thức phù hợp lứa tuổi';
-            const btn = document.getElementById('dh-ai-btn');
-            const progress = document.getElementById('dh-ai-progress');
-            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> AI đang tạo nội dung...'; }
-            if (progress) { progress.classList.remove('hidden'); progress.textContent = 'Bước 1/2 · Đang tạo đáp án và gợi ý phù hợp khối lớp...'; }
+            const grade=Number(document.getElementById('dhbc-ai-grade')?.value||3), count=Math.max(1,Math.min(10,Number(document.getElementById('dhbc-ai-count')?.value||5))), topic=document.getElementById('dhbc-ai-topic')?.value.trim();
+            if(!topic) return showToast('Vui lòng nhập chủ đề!', 'error');
+            const btn=document.getElementById('dhbc-ai-btn'), progress=document.getElementById('dhbc-ai-progress');
+            if(btn){btn.disabled=true;btn.innerHTML='<i class="ph-bold ph-spinner animate-spin"></i> AI đang tạo nội dung...';}
+            if(progress){progress.classList.remove('hidden'); progress.textContent='Đang tạo đáp án, gợi ý và prompt hình ảnh...';}
             try {
-                const specResult = await callDuoiHinhAi({ action: 'specs', grade, count, topic, imagesPerQuestion });
-                const specs = Array.isArray(specResult.questions) ? specResult.questions : [];
-                if (!specs.length) throw new Error('AI chưa tạo được nội dung câu hỏi.');
-                const jobs = [];
-                specs.forEach((q, qi) => (q.imagePrompts || []).forEach((prompt, pi) => jobs.push({ qi, pi, prompt })));
-                const assetsByQuestion = specs.map(() => []);
-                let cursor = 0, done = 0, failed = 0;
-                if (progress) progress.textContent = `Bước 2/2 · Đang tạo hình 0/${jobs.length}...`;
-                const worker = async () => {
-                    while (true) {
-                        const idx = cursor++; if (idx >= jobs.length) return;
-                        const job = jobs[idx];
-                        try {
-                            const result = await callDuoiHinhAi({ action: 'image', grade, answer: specs[job.qi].answer, prompt: job.prompt });
-                            if (result?.data) assetsByQuestion[job.qi].push(await storeDuoiHinhBase64(result.data, result.mimeType));
-                            else failed++;
-                        } catch (e) { failed++; console.warn('AI image failed:', e); }
-                        done++;
-                        if (progress) progress.textContent = `Bước 2/2 · Đang tạo hình ${done}/${jobs.length}${failed ? ` · ${failed} hình lỗi đang bỏ qua` : ''}...`;
-                    }
-                };
-                await Promise.all(Array.from({ length: Math.min(3, jobs.length) }, () => worker()));
-                const created = specs.map((q, i) => normalizeDuoiHinhQuestion({
-                    grade, answer: q.answer, hint: q.hint, imagePrompts: q.imagePrompts,
-                    imageAssetIds: assetsByQuestion[i], source: 'ai'
-                })).filter(q => q.imageAssetIds.length > 0);
-                if (!created.length) throw new Error('Không tạo được hình AI. Hãy kiểm tra quota/model hình ảnh của API Key.');
-                g.settings.grade = grade; g.settings.topic = topic;
-                g.questionLibrary.unshift(...created);
-                saveData();
-                document.getElementById('modal-container').innerHTML = '';
-                showToast(`AI đã tạo ${created.length} câu có hình và đưa vào thư viện!`, 'success');
-                window.openDuoiHinhLibrary(grade);
-            } catch (e) {
-                console.error('Đuổi hình AI:', e);
-                if (progress) progress.textContent = `Không tạo được: ${e.message}`;
-                showToast(`AI: ${e.message}`, 'error');
-                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph-fill ph-sparkle mr-1"></i> THỬ TẠO LẠI'; }
-            }
+                const meta=await dhbcApi('/api/gemini',{action:'generate_dhbc',grade,count,topic,homeroomClass:state.admin?.className||''});
+                const puzzles=Array.isArray(meta.puzzles)?meta.puzzles:[]; if(!puzzles.length) throw new Error('AI chưa tạo được câu hỏi.');
+                const created=[];
+                for(let i=0;i<puzzles.length;i++){
+                    const pz=puzzles[i]; const imageKeys=[]; const prompts=(pz.imagePrompts||[]).slice(0,3);
+                    if(progress) progress.textContent=`Đang tạo hình ${i+1}/${puzzles.length}...`;
+                    for(const pr of prompts){ try { imageKeys.push(await dhbcGenerateImage(pr)); } catch(e){ console.warn('DHBC image generation:',e); } }
+                    created.push({id:dhbcUid('q'),grade:Number(pz.grade)||grade,topic:pz.topic||topic,answer:String(pz.answer||'').trim(),hint:String(pz.hint||'').trim(),imagePrompts:prompts,imageKeys,imageUrls:[],createdBy:'AI',createdAt:Date.now()});
+                }
+                const g=ensureDuoiHinhState(); g.questionLibrary.push(...created); g.settings.grade=grade; saveData();
+                document.getElementById('modal-container').innerHTML=''; showToast(`Đã tạo ${created.length} câu và đưa vào thư viện!`,'success'); openDuoiHinhLibrary();
+            } catch(e){ showToast(`Không tạo được: ${e.message}`,'error'); }
+            finally { if(btn){btn.disabled=false;btn.innerHTML='<i class="ph-fill ph-sparkle mr-1"></i> TẠO CÂU HỎI';} }
         };
 
-        function stopDuoiHinhTimer() {
-            if (window.duoiHinhRuntime.timer) clearInterval(window.duoiHinhRuntime.timer);
-            window.duoiHinhRuntime.timer = null;
-        }
-
-        function startDuoiHinhTimer() {
-            stopDuoiHinhTimer();
-            const g = ensureDuoiHinhState();
-            window.duoiHinhRuntime.timer = setInterval(() => {
-                const p = g.play;
-                if (!p || p.status !== 'playing' || p.answerShown) return;
-                p.secondsLeft = Math.max(0, p.secondsLeft - 1);
-                const el = document.getElementById('dh-timer-number'); if (el) el.textContent = p.secondsLeft;
-                const ring = document.getElementById('dh-timer-ring'); if (ring) ring.style.setProperty('--dh-progress', `${(p.secondsLeft / Math.max(1, Number(g.settings.timeLimit))) * 360}deg`);
-                if (p.secondsLeft <= 10 && p.secondsLeft > 0) duoiHinhSound('tick');
-                if (p.secondsLeft <= 0) { stopDuoiHinhTimer(); p.answerShown = true; p.revealReason = 'timeup'; duoiHinhSound('timeup'); window.initDuoiHinhGame(); }
-            }, 1000);
-        }
-
-        window.startDuoiHinhGame = function() {
-            const g = ensureDuoiHinhState();
-            if (!g.questions.length) return showToast('Hãy chọn câu hỏi từ thư viện trước!', 'error');
-            g.view = 'play';
-            g.play = { status: 'playing', index: 0, secondsLeft: Number(g.settings.timeLimit) || 30, answerShown: false, revealReason: '' };
-            saveData(); duoiHinhSound('start'); window.initDuoiHinhGame(); window.enterInteractiveGameFullscreen(); startDuoiHinhTimer();
+        window.openDuoiHinhLibrary = function() {
+            const g=ensureDuoiHinhState(); const grade=g._libGrade||'all', topic=(g._libTopic||'').toLowerCase();
+            const filtered=g.questionLibrary.filter(q=>(grade==='all'||String(q.grade)===String(grade))&&(!topic||String(q.topic||'').toLowerCase().includes(topic)));
+            const items=filtered.map(q=>`<label class="block bg-white border border-slate-200 rounded-2xl p-4 hover:border-cyan-300"><div class="flex gap-3"><input type="checkbox" class="dhbc-lib-check mt-1 accent-cyan-600" value="${dhbcEsc(q.id)}"><div class="w-28 flex-shrink-0">${dhbcImageGridHtml(q,false)}</div><div class="flex-1 min-w-0"><div class="flex flex-wrap gap-1"><span class="text-[10px] font-black px-2 py-1 rounded bg-cyan-50 text-cyan-700">KHỐI ${q.grade}</span><span class="text-[10px] font-black px-2 py-1 rounded bg-purple-50 text-purple-700">${dhbcEsc(q.topic||'Chung')}</span></div><div class="font-black text-slate-800 mt-2">${dhbcEsc(q.answer)}</div><div class="text-xs text-slate-500 mt-1">${dhbcEsc(q.hint)}</div><div class="mt-3 flex gap-2"><button type="button" onclick="event.preventDefault();openDuoiHinhEditModal('${dhbcEsc(q.id)}')" class="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 font-bold text-xs">Sửa</button><button type="button" onclick="event.preventDefault();deleteDuoiHinhLibraryQuestion('${dhbcEsc(q.id)}')" class="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 font-bold text-xs">Xóa</button></div></div></div></label>`).join('');
+            document.getElementById('modal-container').innerHTML=`<div class="fixed inset-0 z-[250] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"><div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden"><div class="p-6 bg-gradient-to-r from-cyan-500 to-indigo-600 text-white flex justify-between items-center"><div><div class="text-xs font-bold text-cyan-100">Đuổi Hình Bắt Chữ</div><h3 class="text-2xl font-black">📚 THƯ VIỆN CÂU HỎI (${g.questionLibrary.length})</h3></div><button onclick="document.getElementById('modal-container').innerHTML=''" class="w-10 h-10 rounded-full bg-white/10"><i class="ph-bold ph-x"></i></button></div><div class="p-4 border-b bg-slate-50 flex flex-wrap gap-3 items-end"><label class="text-xs font-black text-slate-500">KHỐI<select onchange="ensureDuoiHinhState()._libGrade=this.value;openDuoiHinhLibrary()" class="mt-1 p-2.5 rounded-xl border bg-white"><option value="all">Tất cả</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${String(grade)===String(n)?'selected':''}>Khối ${n}</option>`).join('')}</select></label><label class="flex-1 min-w-[180px] text-xs font-black text-slate-500">CHỦ ĐỀ<input value="${dhbcEsc(g._libTopic||'')}" onchange="ensureDuoiHinhState()._libTopic=this.value;openDuoiHinhLibrary()" placeholder="Lọc theo chủ đề..." class="mt-1 w-full p-2.5 rounded-xl border bg-white"></label><button onclick="openDuoiHinhAIModal()" class="px-4 py-2.5 rounded-xl bg-fuchsia-600 text-white font-black text-sm">✨ Tạo thêm bằng AI</button><button onclick="openDuoiHinhEditModal()" class="px-4 py-2.5 rounded-xl bg-cyan-600 text-white font-black text-sm">+ Thêm</button><button onclick="deleteAllDuoiHinhLibrary()" class="px-4 py-2.5 rounded-xl bg-red-50 text-red-600 border border-red-100 font-black text-sm">Xóa tất cả</button></div><div class="p-4 border-b flex gap-4 text-sm font-bold"><button onclick="document.querySelectorAll('.dhbc-lib-check').forEach(x=>x.checked=true)" class="text-cyan-600">☑ Chọn tất cả</button><button onclick="document.querySelectorAll('.dhbc-lib-check').forEach(x=>x.checked=false)" class="text-slate-500">☐ Bỏ chọn</button></div><div class="flex-1 overflow-y-auto custom-scrollbar p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">${items||`<div class="col-span-full py-16 text-center text-slate-400 font-bold">Thư viện trống.</div>`}</div><div class="p-4 border-t bg-white flex justify-end"><button onclick="addSelectedDuoiHinhToGame()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-white font-black shadow-lg"><i class="ph-bold ph-plus-circle mr-1"></i> ĐƯA CÁC CÂU ĐÃ CHỌN VÀO BỘ CÂU HỎI</button></div></div></div>`;
+            setTimeout(window.hydrateDhbcImages,0);
         };
+        window.addSelectedDuoiHinhToGame=function(){ const ids=[...document.querySelectorAll('.dhbc-lib-check:checked')].map(x=>x.value); if(!ids.length)return showToast('Hãy chọn ít nhất 1 câu!','error'); const g=ensureDuoiHinhState(); const chosen=g.questionLibrary.filter(q=>ids.includes(String(q.id))).map(q=>({...q})); const existing=new Set(g.questions.map(q=>String(q.id))); g.questions.push(...chosen.filter(q=>!existing.has(String(q.id)))); saveData(); document.getElementById('modal-container').innerHTML=''; window.initDuoiHinhBatChu(); showToast(`Đã đưa ${chosen.length} câu vào bộ chơi.`,'success'); };
+        window.deleteDuoiHinhLibraryQuestion=async function(id){ const g=ensureDuoiHinhState(); const q=g.questionLibrary.find(x=>String(x.id)===String(id)); if(!q||!confirm('Xóa câu hỏi này khỏi thư viện?'))return; g.questionLibrary=g.questionLibrary.filter(x=>String(x.id)!==String(id)); g.questions=g.questions.filter(x=>String(x.id)!==String(id)); for(const k of q.imageKeys||[]) await dhbcDeleteImage(k); saveData(); openDuoiHinhLibrary(); };
+        window.deleteAllDuoiHinhLibrary=async function(){ const g=ensureDuoiHinhState(); if(!g.questionLibrary.length||!confirm(`Xóa toàn bộ ${g.questionLibrary.length} câu hỏi Đuổi Hình Bắt Chữ?`))return; const keys=g.questionLibrary.flatMap(q=>q.imageKeys||[]); g.questionLibrary=[]; g.questions=[]; for(const k of keys) await dhbcDeleteImage(k); saveData(); openDuoiHinhLibrary(); };
 
-        window.revealDuoiHinhAnswer = function(reason = 'manual') {
-            const g = ensureDuoiHinhState(), p = g.play; if (!p || p.status !== 'playing' || p.answerShown) return;
-            p.answerShown = true; p.revealReason = reason; stopDuoiHinhTimer(); duoiHinhSound('reveal'); window.initDuoiHinhGame();
-        };
+        window.openDuoiHinhEditModal=function(id=null){ const g=ensureDuoiHinhState(), q=id?g.questionLibrary.find(x=>String(x.id)===String(id)):null; document.getElementById('modal-container').innerHTML=`<div class="fixed inset-0 z-[260] bg-slate-950/70 flex items-center justify-center p-4"><div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden"><div class="p-5 bg-cyan-600 text-white flex justify-between"><h3 class="font-black">${q?'Sửa':'Thêm'} câu hỏi Đuổi Hình Bắt Chữ</h3><button onclick="document.getElementById('modal-container').innerHTML=''">✕</button></div><div class="p-6 space-y-3 bg-slate-50"><div class="grid grid-cols-2 gap-3"><label class="text-xs font-black text-slate-500">KHỐI<select id="dhbc-e-grade" class="mt-1 w-full p-3 rounded-xl border bg-white">${[1,2,3,4,5].map(n=>`<option value="${n}" ${(q?.grade||g.settings.grade)==n?'selected':''}>Khối ${n}</option>`).join('')}</select></label><label class="text-xs font-black text-slate-500">CHỦ ĐỀ<input id="dhbc-e-topic" value="${dhbcEsc(q?.topic||'')}" class="mt-1 w-full p-3 rounded-xl border bg-white"></label></div><label class="block text-xs font-black text-slate-500">ĐÁP ÁN<input id="dhbc-e-answer" value="${dhbcEsc(q?.answer||'')}" class="mt-1 w-full p-3 rounded-xl border bg-white font-bold"></label><label class="block text-xs font-black text-slate-500">GỢI Ý / CÂU HỎI<input id="dhbc-e-hint" value="${dhbcEsc(q?.hint||'')}" class="mt-1 w-full p-3 rounded-xl border bg-white"></label><label class="block text-xs font-black text-slate-500">LINK ẢNH (mỗi dòng 1 link)<textarea id="dhbc-e-urls" rows="4" class="mt-1 w-full p-3 rounded-xl border bg-white font-mono text-xs">${dhbcEsc((q?.imageUrls||[]).join('\n'))}</textarea></label><button onclick="saveDuoiHinhEdit('${dhbcEsc(id||'')}')" class="w-full py-3 rounded-xl bg-cyan-600 text-white font-black">LƯU CÂU HỎI</button></div></div></div>`; };
+        window.saveDuoiHinhEdit=function(id=''){ const g=ensureDuoiHinhState(), answer=document.getElementById('dhbc-e-answer').value.trim(), hint=document.getElementById('dhbc-e-hint').value.trim(); if(!answer)return showToast('Vui lòng nhập đáp án!','error'); const data={grade:Number(document.getElementById('dhbc-e-grade').value),topic:document.getElementById('dhbc-e-topic').value.trim()||'Chung',answer,hint,imageUrls:document.getElementById('dhbc-e-urls').value.split(/\n+/).map(x=>x.trim()).filter(Boolean)}; let q=id?g.questionLibrary.find(x=>String(x.id)===String(id)):null; if(q)Object.assign(q,data); else { q={id:dhbcUid('q'),...data,imageKeys:[],imagePrompts:[],createdBy:'manual',createdAt:Date.now()}; g.questionLibrary.push(q); } saveData(); document.getElementById('modal-container').innerHTML=''; openDuoiHinhLibrary(); };
 
-        window.nextDuoiHinhQuestion = function() {
-            const g = ensureDuoiHinhState(), p = g.play; if (!p) return;
-            stopDuoiHinhTimer();
-            if (p.index >= g.questions.length - 1) { p.status = 'finished'; duoiHinhSound('win'); window.initDuoiHinhGame(); return; }
-            p.index++; p.secondsLeft = Number(g.settings.timeLimit) || 30; p.answerShown = false; p.revealReason = '';
-            duoiHinhSound('next'); window.initDuoiHinhGame(); startDuoiHinhTimer();
-        };
-
-        window.replayDuoiHinhGame = function() {
-            const g = ensureDuoiHinhState(); stopDuoiHinhTimer();
-            g.view = 'play'; g.play = { status: 'playing', index: 0, secondsLeft: Number(g.settings.timeLimit) || 30, answerShown: false, revealReason: '' };
-            duoiHinhSound('start'); window.initDuoiHinhGame(); window.enterInteractiveGameFullscreen(); startDuoiHinhTimer();
-        };
-
-        window.exitDuoiHinhGame = function() {
-            const g = ensureDuoiHinhState(); stopDuoiHinhTimer(); g.view = 'config'; g.play = null; saveData(); window.exitInteractiveGameFullscreen(); window.initDuoiHinhGame();
-        };
-
-        window.cleanupDuoiHinhGame = function() { stopDuoiHinhTimer(); };
-
-        window.initDuoiHinhGame = function() {
-            const c = document.getElementById('game-mount-point'); if (!c) return;
-            const g = ensureDuoiHinhState();
-            if (g.view !== 'play' || !g.play) {
-                const gradeOpts = [1,2,3,4,5].map(n => `<option value="Lớp ${n}" ${g.settings.grade === `Lớp ${n}` ? 'selected' : ''}>Khối ${n}</option>`).join('');
-                const selected = g.questions.length ? g.questions.map((q, idx) => `<div class="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm"><div class="w-16 h-14 flex-shrink-0 overflow-hidden rounded-xl grid grid-cols-2 gap-0.5">${duoiHinhImageHtml(q,'thumb')}</div><div class="flex-1 min-w-0"><div class="font-black text-slate-800 truncate">${idx + 1}. ${mfgEsc(q.answer)}</div><div class="text-xs text-slate-500 truncate">${mfgEsc(q.hint)}</div></div><button onclick="removeDuoiHinhPlayQuestion('${escapeInlineJs(String(q.id))}')" class="w-9 h-9 rounded-full bg-red-50 text-red-500 hover:bg-red-100"><i class="ph-bold ph-x"></i></button></div>`).join('') : `<div class="py-10 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl"><i class="ph-fill ph-images text-5xl"></i><div class="font-black mt-2">Chưa chọn câu để chơi</div><button onclick="openDuoiHinhLibrary()" class="mt-3 px-4 py-2 rounded-xl bg-cyan-50 text-cyan-700 font-black">Mở thư viện</button></div>`;
-                c.innerHTML = `<div class="w-full h-full overflow-y-auto custom-scrollbar bg-gradient-to-br from-cyan-50 via-white to-violet-50 rounded-[1.5rem] p-4 md:p-6">
-                    <div class="max-w-6xl mx-auto space-y-5">
-                        <div class="relative overflow-hidden bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 rounded-[2rem] p-5 md:p-7 text-white shadow-xl"><div class="absolute -right-10 -top-10 w-44 h-44 rounded-full bg-white/10"></div><div class="relative flex flex-col md:flex-row md:items-center justify-between gap-5"><div class="flex items-center gap-4"><div class="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center shadow-inner"><i class="ph-fill ph-images-square text-4xl"></i></div><div><div class="text-xs uppercase tracking-[.2em] text-cyan-100 font-black">Trò chơi quan sát & vốn từ</div><h3 class="text-2xl md:text-3xl font-black">Đuổi hình bắt chữ</h3><p class="text-sm text-blue-100 mt-1">Xem 1 hoặc nhiều hình, suy luận và đoán từ/cụm từ bí mật.</p></div></div><button onclick="startDuoiHinhGame()" class="px-7 py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-black shadow-lg hover:-translate-y-0.5 transition-all"><i class="ph-fill ph-play-circle text-xl mr-1"></i> BẮT ĐẦU CHƠI</button></div></div>
-                        <div class="grid grid-cols-1 lg:grid-cols-[.8fr_1.2fr] gap-5">
-                            <div class="bg-white rounded-[2rem] border border-slate-200 p-5 shadow-sm space-y-4"><div class="font-black text-slate-800 flex items-center gap-2"><i class="ph-fill ph-sliders-horizontal text-cyan-600"></i> Cấu hình trò chơi</div><div class="grid grid-cols-2 gap-3"><div><label class="text-xs font-black text-slate-500">KHỐI LỚP</label><select onchange="updateDuoiHinhSetting('grade',this.value)" class="mt-1 w-full p-3 rounded-xl border border-slate-200 bg-slate-50 font-black">${gradeOpts}</select></div><div><label class="text-xs font-black text-slate-500">THỜI GIAN / CÂU</label><div class="relative mt-1"><input type="number" min="5" max="180" value="${Number(g.settings.timeLimit)||30}" onchange="updateDuoiHinhSetting('timeLimit',this.value)" class="w-full p-3 pr-12 rounded-xl border border-slate-200 bg-slate-50 font-black"><span class="absolute right-3 top-3 text-xs text-slate-400 font-bold">giây</span></div></div></div><label class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl"><input type="checkbox" class="w-5 h-5 accent-cyan-600" ${g.settings.soundEnabled?'checked':''} onchange="updateDuoiHinhSetting('soundEnabled',this.checked)"><span class="font-bold text-sm text-slate-700">Âm thanh khi bắt đầu, đếm giờ, hết giờ và hiện đáp án</span></label><div class="grid grid-cols-1 sm:grid-cols-3 gap-2"><button onclick="openDuoiHinhAI()" class="py-3 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white font-black text-xs"><i class="ph-fill ph-sparkle mr-1"></i> Tạo bằng AI</button><button onclick="openDuoiHinhLibrary()" class="py-3 rounded-xl bg-blue-600 text-white font-black text-xs"><i class="ph-fill ph-books mr-1"></i> Thư viện (${g.questionLibrary.length})</button><button onclick="openDuoiHinhAddEditModal()" class="py-3 rounded-xl bg-cyan-50 text-cyan-700 border border-cyan-200 font-black text-xs"><i class="ph-bold ph-plus mr-1"></i> Thêm câu</button></div></div>
-                            <div class="bg-white rounded-[2rem] border border-slate-200 p-5 shadow-sm"><div class="flex items-center justify-between mb-3"><div><div class="font-black text-slate-800">Bộ câu hỏi sẽ chơi</div><div class="text-xs text-slate-500">${g.questions.length} câu đã chọn</div></div>${g.questions.length?'<button onclick="clearDuoiHinhPlayQuestions()" class="px-3 py-2 rounded-xl bg-red-50 text-red-500 text-xs font-black">Bỏ tất cả</button>':''}</div><div class="space-y-2 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">${selected}</div></div>
-                        </div>
-                    </div>
-                </div>`;
-                setTimeout(() => hydrateDuoiHinhImages(c), 0); return;
-            }
-
-            const p = g.play;
-            if (p.status === 'finished') {
-                c.innerHTML = `<div class="w-full min-h-full overflow-y-auto custom-scrollbar bg-gradient-to-br from-cyan-500 via-blue-600 to-violet-700 text-white flex items-center justify-center p-5"><div class="text-center max-w-2xl"><div class="text-7xl md:text-9xl animate-bounce">🎉</div><h2 class="text-3xl md:text-5xl font-black mt-5">Hoàn thành!</h2><p class="text-blue-100 mt-3 text-lg">Đã chinh phục ${g.questions.length} câu Đuổi hình bắt chữ.</p><div class="mt-7 flex flex-wrap justify-center gap-3"><button onclick="replayDuoiHinhGame()" class="px-6 py-3 rounded-2xl bg-amber-400 text-slate-900 font-black"><i class="ph-bold ph-arrow-clockwise mr-1"></i> CHƠI LẠI</button><button onclick="exitDuoiHinhGame()" class="px-6 py-3 rounded-2xl bg-white/15 border border-white/20 font-black"><i class="ph-bold ph-x mr-1"></i> THOÁT</button></div></div></div>`; return;
-            }
-            const q = g.questions[p.index];
-            if (!q) { p.status = 'finished'; return window.initDuoiHinhGame(); }
-            const imageCount = Math.max(1, countDuoiHinhImages(q));
-            const images = duoiHinhImageHtml(q, 'play');
-            c.innerHTML = `<div class="w-full min-h-full overflow-y-auto custom-scrollbar bg-gradient-to-br from-cyan-50 via-white to-violet-50 p-3 md:p-5 lg:p-6">
-                <div class="max-w-[1500px] mx-auto min-h-full flex flex-col gap-4">
-                    <div class="bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 text-white rounded-2xl md:rounded-[2rem] p-3 md:p-4 shadow-xl flex flex-wrap items-center justify-between gap-3"><div class="flex items-center gap-3"><div class="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center"><i class="ph-fill ph-images-square text-2xl"></i></div><div><div class="text-xs font-black text-cyan-100 uppercase tracking-widest">Đuổi hình bắt chữ · ${mfgEsc(q.grade)}</div><div class="font-black text-lg md:text-xl">Câu ${p.index + 1}/${g.questions.length}</div></div></div><div class="flex items-center gap-2"><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-10 h-10 rounded-xl bg-white/15 hover:bg-white/25" title="Thu màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-in"></i></button><button onclick="exitDuoiHinhGame()" class="px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 font-black text-sm"><i class="ph-bold ph-x mr-1"></i> THOÁT</button></div></div>
-                    <div class="flex-1 flex flex-col items-center justify-center gap-4 md:gap-5">
-                        <div class="relative w-24 h-24 md:w-28 md:h-28 rounded-full flex items-center justify-center text-3xl md:text-4xl font-black text-slate-800 shadow-lg bg-white" id="dh-timer-ring" style="--dh-progress:${(p.secondsLeft/Math.max(1,Number(g.settings.timeLimit)))*360}deg;background:conic-gradient(#f59e0b var(--dh-progress),#e2e8f0 0);"><div class="absolute inset-[7px] rounded-full bg-white flex flex-col items-center justify-center"><span id="dh-timer-number">${p.secondsLeft}</span><span class="text-[9px] text-slate-400 uppercase">giây</span></div></div>
-                        <div class="grid ${duoiHinhGridClass(imageCount)} gap-3 md:gap-5 w-full mx-auto">${images}</div>
-                        <div class="w-full max-w-5xl rounded-2xl bg-white border border-cyan-100 shadow-sm p-3 md:p-4 text-center"><div class="text-[10px] uppercase tracking-[.18em] font-black text-cyan-600">Gợi ý</div><div class="text-lg md:text-2xl font-black text-slate-700 mt-1">${mfgEsc(q.hint)}</div></div>
-                        ${p.answerShown ? `<div class="w-full max-w-5xl rounded-[2rem] bg-gradient-to-r from-amber-300 to-yellow-400 text-slate-900 shadow-xl p-4 md:p-6 text-center animate-fade-in"><div class="text-xs uppercase tracking-[.2em] font-black">${p.revealReason==='timeup'?'⏰ Hết giờ · Đáp án':'✨ Đáp án'}</div><div class="text-3xl md:text-5xl lg:text-6xl font-black mt-1">${mfgEsc(q.answer)}</div></div>` : ''}
-                    </div>
-                    <div class="sticky bottom-0 bg-white/90 backdrop-blur border border-slate-200 rounded-2xl p-2 md:p-3 shadow-xl flex flex-wrap justify-center gap-2 md:gap-3"><button onclick="replayDuoiHinhGame()" class="px-4 py-3 rounded-xl bg-slate-100 text-slate-700 font-black text-sm"><i class="ph-bold ph-arrow-clockwise mr-1"></i> Chơi lại</button><button onclick="revealDuoiHinhAnswer()" ${p.answerShown?'disabled':''} class="px-5 py-3 rounded-xl bg-amber-400 disabled:bg-slate-200 disabled:text-slate-400 text-slate-900 font-black text-sm"><i class="ph-fill ph-eye mr-1"></i> Hiện đáp án</button><button onclick="nextDuoiHinhQuestion()" class="px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-black text-sm shadow-md">${p.index >= g.questions.length-1 ? 'Hoàn thành' : 'Câu tiếp theo'} <i class="ph-bold ph-arrow-right ml-1"></i></button></div>
-                </div>
-            </div>`;
-            setTimeout(() => { hydrateDuoiHinhImages(c); window.updateInteractiveGameFullscreenButtons(); }, 0);
-        };
+        window.startDuoiHinhGame=function(){ const g=ensureDuoiHinhState(); if(!g.questions.length)return showToast('Hãy chọn câu hỏi để chơi!','error'); window.cleanupDuoiHinhGame(false); g.view='play'; g.play={index:0,timer:Number(g.settings.timeLimit)||30,revealed:false,finished:false}; dhbcSound('start'); window.initDuoiHinhBatChu(); window.enterInteractiveGameFullscreen?.(); };
+        function startDuoiHinhTimer(){ const g=ensureDuoiHinhState(); if(window.duoiHinhRuntime.timer)clearInterval(window.duoiHinhRuntime.timer); window.duoiHinhRuntime.timer=setInterval(()=>{ if(g.view!=='play'||!g.play||g.play.revealed||g.play.finished)return; g.play.timer--; const el=document.getElementById('dhbc-timer'); if(el)el.textContent=g.play.timer; if(g.play.timer<=0){ g.play.timer=0; g.play.revealed=true; dhbcSound('timeout'); dhbcSound('answer'); renderDuoiHinhPlay(); } },1000); }
+        window.renderDuoiHinhPlay=function(){ const c=document.getElementById('game-mount-point'), g=ensureDuoiHinhState(), p=g.play; if(!c||!p)return; const q=g.questions[p.index]; if(!q){p.finished=true;return;} const answer=p.revealed?`<div class="absolute inset-0 z-30 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-6"><div class="bg-white rounded-[2rem] p-8 md:p-10 text-center shadow-2xl max-w-2xl w-full animate-fade-in"><div class="text-sm font-black text-emerald-600 uppercase tracking-widest">Đáp án đúng</div><div class="text-4xl md:text-6xl font-black text-slate-900 mt-3">${dhbcEsc(q.answer)}</div><button onclick="nextDuoiHinhQuestion()" class="mt-7 px-7 py-3 bg-gradient-to-r from-cyan-500 to-indigo-600 text-white rounded-xl font-black">CÂU TIẾP THEO <i class="ph-bold ph-arrow-right ml-1"></i></button></div></div>`:''; c.innerHTML=`<div class="interactive-game-play-shell w-full h-full min-h-[640px] bg-gradient-to-br from-cyan-600 via-sky-600 to-indigo-700 text-white relative overflow-auto custom-scrollbar flex flex-col"><div class="sticky top-0 z-40 min-h-14 px-3 md:px-5 py-2 bg-slate-950/25 backdrop-blur-md border-b border-white/15 flex flex-wrap items-center gap-2 justify-between"><div class="font-black">🖼️ ĐUỔI HÌNH BẮT CHỮ · Câu ${p.index+1}/${g.questions.length}</div><div class="flex items-center gap-2"><div class="px-3 py-2 bg-white/15 rounded-xl font-black">⏱ <span id="dhbc-timer">${p.timer}</span>s</div><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-10 h-10 rounded-xl bg-white/15"><i data-fullscreen-icon class="ph-bold ph-corners-out"></i></button><button onclick="exitDuoiHinhGame()" class="px-3 h-10 rounded-xl bg-red-500 font-black text-xs">THOÁT</button></div></div><div class="px-4 md:px-8 pt-5 text-center"><div class="inline-block px-3 py-1 rounded-full bg-white/15 text-xs font-black">KHỐI ${q.grade} · ${dhbcEsc(q.topic||'Chung')}</div><h2 class="mt-3 text-2xl md:text-4xl font-black drop-shadow">${dhbcEsc(q.hint||'Hãy nhìn hình và đoán từ/cụm từ!')}</h2></div><div class="flex-1 p-4 md:p-8 min-h-[360px] flex items-center justify-center"><div class="w-full max-w-6xl bg-white/95 rounded-[2rem] p-4 md:p-6 shadow-2xl text-slate-900 min-h-[320px] flex items-center">${dhbcImageGridHtml(q,true)}</div></div><div class="sticky bottom-0 z-20 p-3 md:p-4 bg-slate-950/25 backdrop-blur-md border-t border-white/10 flex flex-wrap justify-center gap-3"><button onclick="revealDuoiHinhAnswer()" class="px-5 py-3 bg-amber-400 text-slate-900 rounded-xl font-black"><i class="ph-fill ph-eye mr-1"></i> HIỆN ĐÁP ÁN</button><button onclick="nextDuoiHinhQuestion()" class="px-5 py-3 bg-white/15 border border-white/20 rounded-xl font-black">CÂU TIẾP THEO</button><button onclick="replayDuoiHinhGame()" class="px-5 py-3 bg-emerald-500 rounded-xl font-black">CHƠI LẠI</button></div>${answer}</div>`; setTimeout(window.hydrateDhbcImages,0); window.updateInteractiveGameFullscreenButtons?.(); if(!p.revealed&&!p.finished)startDuoiHinhTimer(); };
+        window.revealDuoiHinhAnswer=function(){ const g=ensureDuoiHinhState(); if(!g.play||g.play.revealed)return; g.play.revealed=true; dhbcSound('answer'); renderDuoiHinhPlay(); };
+        window.nextDuoiHinhQuestion=function(){ const g=ensureDuoiHinhState(); if(!g.play)return; if(g.play.index>=g.questions.length-1){ if(window.duoiHinhRuntime.timer)clearInterval(window.duoiHinhRuntime.timer); g.play.finished=true; document.getElementById('game-mount-point').innerHTML=`<div class="interactive-game-play-shell w-full h-full min-h-[620px] bg-gradient-to-br from-cyan-500 to-indigo-700 text-white flex items-center justify-center p-6"><div class="text-center"><div class="text-7xl">🎉</div><h2 class="text-4xl font-black mt-4">Hoàn thành!</h2><p class="mt-2 text-cyan-100 font-bold">Đã chơi hết ${g.questions.length} câu.</p><div class="mt-6 flex flex-wrap gap-3 justify-center"><button onclick="replayDuoiHinhGame()" class="px-6 py-3 rounded-xl bg-white text-indigo-700 font-black">CHƠI LẠI</button><button onclick="exitDuoiHinhGame()" class="px-6 py-3 rounded-xl bg-red-500 font-black">THOÁT</button></div></div></div>`; return; } g.play.index++; g.play.timer=Number(g.settings.timeLimit)||30; g.play.revealed=false; dhbcSound('next'); renderDuoiHinhPlay(); };
+        window.replayDuoiHinhGame=function(){ const g=ensureDuoiHinhState(); g.play={index:0,timer:Number(g.settings.timeLimit)||30,revealed:false,finished:false}; dhbcSound('start'); renderDuoiHinhPlay(); };
+        window.exitDuoiHinhGame=function(){ const g=ensureDuoiHinhState(); window.cleanupDuoiHinhGame(true); g.view='config'; g.play=null; saveData(); window.initDuoiHinhBatChu(); };
 
         // =============================================================
         // NGÓN TAY THẦN KỲ - CUỘC ĐUA NGÔI SAO
@@ -6464,7 +6139,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                             <i class="ph-fill ph-hand-pointing text-xl"></i> Ngón Tay Thần Kỳ
                         </button>
                         <button onclick="switchGame('duoi-hinh-bat-chu')" class="px-6 py-3.5 bg-white border-2 border-cyan-200 text-cyan-700 font-bold rounded-2xl shadow-sm hover:shadow-md hover:bg-cyan-50 hover:border-cyan-300 transition-all flex items-center gap-2 ${state.activeGame === 'duoi-hinh-bat-chu' ? 'ring-4 ring-cyan-100 bg-cyan-50' : ''}">
-                            <i class="ph-fill ph-images-square text-xl"></i> Đuổi Hình Bắt Chữ
+                            <i class="ph-fill ph-images text-xl"></i> Đuổi Hình Bắt Chữ
                         </button>
                     </div>
 
