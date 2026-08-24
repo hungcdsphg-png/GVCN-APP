@@ -1976,7 +1976,8 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 'keo-co-kien': 'Kéo Co Kiến',
                 'ngon-tay-than-ky': 'Ngón Tay Thần Kỳ',
                 'quizz-nghieng-dau': 'Quizz Nghiêng Đầu',
-                'quet-the-qr': 'Quét Thẻ QR'
+                'quet-the-qr': 'Quét Thẻ QR',
+                'space-race': '🚀 Phi thuyền vũ trụ'
             };
             const homeroomGrade = inferHomeroomGrade();
             const gradeOptions = [1,2,3,4,5].map(n => `<option ${homeroomGrade === `Lớp ${n}` ? 'selected' : ''}>Lớp ${n}</option>`).join('');
@@ -2027,6 +2028,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if (targetGame === 'ngon-tay-than-ky') { g = ensureMagicFingerState(); initFn = window.initMagicFingerGame; }
             else if (targetGame === 'quizz-nghieng-dau') { g = ensureHeadTiltState(); initFn = window.initHeadTiltGame; }
             else if (targetGame === 'quet-the-qr') { g = ensureQRQuizState(); initFn = window.initQRQuizGame; }
+            else if (targetGame === 'space-race') { g = ensureSpaceRaceState(); initFn = window.initSpaceRaceGame; }
             if (!g) return;
 
             if (!Array.isArray(g.questionLibrary)) g.questionLibrary = [];
@@ -2070,12 +2072,14 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if (gameId === 'ngon-tay-than-ky') return ensureMagicFingerState();
             if (gameId === 'quizz-nghieng-dau') return ensureHeadTiltState();
             if (gameId === 'quet-the-qr') return ensureQRQuizState();
+            if (gameId === 'space-race') return ensureSpaceRaceState();
             return null;
         }
 
         function getInteractiveQuestionLibraryMeta(gameId) {
             if (gameId === 'ngon-tay-than-ky') return { name: 'Ngón Tay Thần Kỳ', icon: 'ph-hand-pointing' };
             if (gameId === 'quizz-nghieng-dau') return { name: 'Quizz Nghiêng Đầu', icon: 'ph-smiley-wink' };
+            if (gameId === 'space-race') return { name: 'Phi thuyền vũ trụ', icon: 'ph-rocket-launch' };
             return { name: 'Quét Thẻ QR', icon: 'ph-qr-code' };
         }
 
@@ -2083,6 +2087,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if (gameId === 'ngon-tay-than-ky' && window.initMagicFingerGame) window.initMagicFingerGame();
             else if (gameId === 'quizz-nghieng-dau' && window.initHeadTiltGame) window.initHeadTiltGame();
             else if (gameId === 'quet-the-qr' && window.initQRQuizGame) window.initQRQuizGame();
+            else if (gameId === 'space-race' && window.initSpaceRaceGame) window.initSpaceRaceGame();
         }
 
         window.openGameQuestionLibrary = function(gameId) {
@@ -2259,6 +2264,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if (current === 'ngon-tay-than-ky' && current !== nextGameId && window.cleanupMagicFingerGame) window.cleanupMagicFingerGame(true);
             if (current === 'quizz-nghieng-dau' && current !== nextGameId && window.cleanupHeadTiltGame) window.cleanupHeadTiltGame(true);
             if (current === 'quet-the-qr' && current !== nextGameId && window.cleanupQRQuizGame) window.cleanupQRQuizGame(true);
+            if (current === 'space-race' && current !== nextGameId && window.cleanupSpaceRaceGame) window.cleanupSpaceRaceGame(true);
         };
 
         window.switchGame = function(gameId) {
@@ -2277,7 +2283,551 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 else if (gameId === 'ngon-tay-than-ky') window.initMagicFingerGame();
                 else if (gameId === 'quizz-nghieng-dau') window.initHeadTiltGame();
                 else if (gameId === 'quet-the-qr') window.initQRQuizGame();
+                else if (gameId === 'space-race') window.initSpaceRaceGame();
             }, 50);
+        };
+
+
+        // =============================================================
+        // 🚀 PHI THUYỀN VŨ TRỤ - TRÒ CHƠI ĐUA KIẾN THỨC
+        // Tái sử dụng học sinh/tổ, Gemini API và Thư viện câu hỏi dùng chung.
+        // Không tạo API/database riêng.
+        // =============================================================
+        window.spaceRaceTimers = window.spaceRaceTimers || [];
+
+        function ensureSpaceRaceState() {
+            if (!state.spaceRaceGame) {
+                state.spaceRaceGame = {
+                    view: 'config',
+                    settings: {
+                        title: 'PHI THUYỀN VŨ TRỤ',
+                        grade: inferHomeroomGrade(),
+                        topic: '',
+                        questionsPerPlayer: 5,
+                        playerMode: 'student',
+                        selectedPlayerIds: (state.students || []).slice(0, 2).map(s => String(s.id)),
+                        selectedTeamNames: (state.groups || []).slice(0, 2).map(g => String(g.name)),
+                        shuffleQuestions: true,
+                        shuffleAnswers: true,
+                        soundEnabled: true
+                    },
+                    questions: [],
+                    questionLibrary: [],
+                    play: null
+                };
+            }
+            const g = state.spaceRaceGame;
+            if (!g.settings) g.settings = {};
+            const d = {
+                title: 'PHI THUYỀN VŨ TRỤ',
+                grade: inferHomeroomGrade(),
+                topic: '',
+                questionsPerPlayer: 5,
+                playerMode: 'student',
+                selectedPlayerIds: (state.students || []).slice(0, 2).map(s => String(s.id)),
+                selectedTeamNames: (state.groups || []).slice(0, 2).map(x => String(x.name)),
+                shuffleQuestions: true,
+                shuffleAnswers: true,
+                soundEnabled: true
+            };
+            Object.keys(d).forEach(k => { if (typeof g.settings[k] === 'undefined') g.settings[k] = d[k]; });
+            if (!Array.isArray(g.settings.selectedPlayerIds)) g.settings.selectedPlayerIds = [];
+            if (!Array.isArray(g.settings.selectedTeamNames)) g.settings.selectedTeamNames = [];
+            if (!Array.isArray(g.questions)) g.questions = [];
+            if (!Array.isArray(g.questionLibrary)) g.questionLibrary = [];
+            if (!g.view) g.view = 'config';
+            return g;
+        }
+
+        function spaceRacePalette(i) {
+            const colors = [
+                {main:'#38bdf8', glow:'#22d3ee', trail:'#67e8f9'},
+                {main:'#f472b6', glow:'#fb7185', trail:'#f9a8d4'},
+                {main:'#a78bfa', glow:'#8b5cf6', trail:'#c4b5fd'},
+                {main:'#34d399', glow:'#10b981', trail:'#6ee7b7'},
+                {main:'#fbbf24', glow:'#f59e0b', trail:'#fde68a'},
+                {main:'#fb7185', glow:'#ef4444', trail:'#fda4af'},
+                {main:'#60a5fa', glow:'#2563eb', trail:'#93c5fd'},
+                {main:'#2dd4bf', glow:'#0d9488', trail:'#5eead4'}
+            ];
+            return colors[i % colors.length];
+        }
+
+        function spaceRaceSound(type) {
+            const g = ensureSpaceRaceState();
+            if (!g.settings.soundEnabled || typeof Tone === 'undefined') return;
+            try {
+                if (Tone.context.state !== 'running') Tone.start();
+                if (type === 'win') {
+                    const s = new Tone.PolySynth().toDestination();
+                    s.volume.value = -8;
+                    s.triggerAttackRelease(['C5','E5','G5','C6'], '4n');
+                    setTimeout(() => { try{s.dispose()}catch(e){} }, 1100);
+                } else {
+                    const s = new Tone.Synth({oscillator:{type:type==='correct'?'triangle':'sine'}, envelope:{attack:.005,decay:.12,sustain:0,release:.15}}).toDestination();
+                    s.volume.value = -10;
+                    s.triggerAttackRelease(type === 'correct' ? 'G5' : 'C3', type === 'correct' ? '16n' : '8n');
+                    setTimeout(() => { try{s.dispose()}catch(e){} }, 600);
+                }
+            } catch(e) {}
+        }
+
+        function spaceRaceClearTimers() {
+            (window.spaceRaceTimers || []).forEach(t => clearTimeout(t));
+            window.spaceRaceTimers = [];
+        }
+
+        window.cleanupSpaceRaceGame = function(exitFullscreen = false) {
+            spaceRaceClearTimers();
+            if (exitFullscreen && window.isInteractiveGameFullscreen && window.isInteractiveGameFullscreen()) window.exitInteractiveGameFullscreen();
+        };
+
+        function spaceRaceContestants() {
+            const g = ensureSpaceRaceState();
+            if (g.settings.playerMode === 'team') {
+                const wanted = new Set((g.settings.selectedTeamNames || []).map(String));
+                return (state.groups || []).filter(gr => wanted.has(String(gr.name))).map((gr, idx) => ({
+                    id: `team-${gr.id || idx}`,
+                    source: String(gr.name),
+                    name: String(gr.name),
+                    subtitle: `${(state.students || []).filter(s => String(s.group) === String(gr.name)).length} học sinh`,
+                    avatarUrl: gr.avatarUrl || '',
+                    isTeam: true
+                }));
+            }
+            const wanted = new Set((g.settings.selectedPlayerIds || []).map(String));
+            return (state.students || []).filter(s => wanted.has(String(s.id))).map(s => ({
+                id: `student-${s.id}`,
+                source: String(s.id),
+                name: String(s.name || 'Học sinh'),
+                subtitle: s.group ? String(s.group) : 'Học sinh',
+                avatarUrl: s.avatarUrl || '',
+                isTeam: false
+            }));
+        }
+
+        window.updateSpaceRaceSetting = function(key, value, type = 'string') {
+            const g = ensureSpaceRaceState();
+            if (type === 'number') value = Number(value);
+            if (type === 'boolean') value = !!value;
+            g.settings[key] = value;
+            saveData();
+            if (['playerMode','grade'].includes(key)) window.initSpaceRaceGame();
+        };
+
+        window.toggleSpaceRaceContestant = function(mode, value, checked) {
+            const g = ensureSpaceRaceState();
+            const key = mode === 'team' ? 'selectedTeamNames' : 'selectedPlayerIds';
+            const set = new Set((g.settings[key] || []).map(String));
+            if (checked) set.add(String(value)); else set.delete(String(value));
+            g.settings[key] = [...set];
+            saveData();
+            window.initSpaceRaceGame();
+        };
+
+        window.addSpaceRaceQuestion = function() {
+            const g = ensureSpaceRaceState();
+            g.questions.push({
+                id: Date.now() + Math.random(),
+                text: 'Nhập nội dung câu hỏi...',
+                options: [
+                    {text:'Đáp án A',isCorrect:true},{text:'Đáp án B',isCorrect:false},
+                    {text:'Đáp án C',isCorrect:false},{text:'Đáp án D',isCorrect:false}
+                ]
+            });
+            saveData();
+            window.initSpaceRaceGame();
+        };
+
+        window.deleteSpaceRaceQuestion = function(index) {
+            const g = ensureSpaceRaceState();
+            g.questions.splice(index, 1);
+            saveData();
+            window.initSpaceRaceGame();
+        };
+
+        window.updateSpaceRaceQuestion = function(qi, field, value, oi = null) {
+            const g = ensureSpaceRaceState();
+            const q = g.questions[qi];
+            if (!q) return;
+            if (field === 'text') q.text = value;
+            else if (field === 'option' && q.options[oi]) q.options[oi].text = value;
+            else if (field === 'correct') q.options.forEach((o, i) => o.isCorrect = i === Number(value));
+            saveData();
+            if (field === 'correct') window.initSpaceRaceGame();
+        };
+
+        function spaceRaceCloneQuestion(q) {
+            return { id: q.id, text: String(q.text || ''), options: (q.options || []).map(o => ({text:String(o.text || ''), isCorrect:!!o.isCorrect})) };
+        }
+
+        function spaceRaceAssignQuestion(player, settings) {
+            if (!player.questionBank.length) return;
+            if (player.qCursor >= player.questionBank.length) {
+                player.qCursor = 0;
+                if (settings.shuffleQuestions) player.questionBank.sort(() => Math.random() - .5);
+            }
+            const q = spaceRaceCloneQuestion(player.questionBank[player.qCursor]);
+            player.qCursor += 1;
+            if (settings.shuffleAnswers) q.options.sort(() => Math.random() - .5);
+            player.currentQuestion = q;
+            player.feedback = null;
+            player.locked = false;
+        }
+
+        function spaceRaceRanking(players) {
+            return [...players].sort((a,b) => {
+                if (b.correctCount !== a.correctCount) return b.correctCount - a.correctCount;
+                const aa = a.attempts ? a.correctCount / a.attempts : 0;
+                const ba = b.attempts ? b.correctCount / b.attempts : 0;
+                if (ba !== aa) return ba - aa;
+                return a.name.localeCompare(b.name, 'vi');
+            });
+        }
+
+        window.startSpaceRaceGame = function() {
+            const g = ensureSpaceRaceState();
+            const contestants = spaceRaceContestants();
+            if (contestants.length < 2) return showToast('Hãy chọn ít nhất 2 học sinh/đội chơi!', 'error');
+            if (!g.questions.length) return showToast('Bộ câu hỏi đang trống. Hãy chọn câu từ Thư viện hoặc tạo bằng AI!', 'error');
+            const target = Math.max(1, Math.min(20, Number(g.settings.questionsPerPlayer) || 5));
+            spaceRaceClearTimers();
+            const players = contestants.map((c, idx) => {
+                const bank = g.questions.map(spaceRaceCloneQuestion);
+                if (g.settings.shuffleQuestions) bank.sort(() => Math.random() - .5);
+                const p = {
+                    ...c,
+                    colorIndex: idx,
+                    questionBank: bank,
+                    qCursor: 0,
+                    currentQuestion: null,
+                    correctCount: 0,
+                    attempts: 0,
+                    locked: false,
+                    feedback: null
+                };
+                spaceRaceAssignQuestion(p, g.settings);
+                return p;
+            });
+            g.play = {
+                status: 'playing',
+                targetCorrect: target,
+                players,
+                activeTurnIndex: 0,
+                turnMode: players.length > 4,
+                totalAttempts: 0,
+                startedAt: Date.now(),
+                winnerId: null
+            };
+            g.view = 'play';
+            saveData();
+            window.initSpaceRaceGame();
+            setTimeout(() => window.enterInteractiveGameFullscreen && window.enterInteractiveGameFullscreen(), 80);
+        };
+
+        window.submitSpaceRaceAnswer = function(playerId, optionIndex) {
+            const g = ensureSpaceRaceState();
+            const p = g.play;
+            if (!p || p.status !== 'playing') return;
+            const playerIndex = p.players.findIndex(x => x.id === playerId);
+            const player = p.players[playerIndex];
+            if (!player || player.locked) return;
+            if (p.turnMode && playerIndex !== p.activeTurnIndex) return;
+            const q = player.currentQuestion;
+            const option = q?.options?.[optionIndex];
+            if (!option) return;
+
+            player.locked = true;
+            player.attempts += 1;
+            p.totalAttempts += 1;
+            const correct = !!option.isCorrect;
+            player.feedback = correct ? 'correct' : 'wrong';
+            if (correct) {
+                player.correctCount += 1;
+                spaceRaceSound('correct');
+            } else spaceRaceSound('wrong');
+
+            if (player.correctCount >= p.targetCorrect) {
+                p.status = 'finished';
+                p.winnerId = player.id;
+                spaceRaceSound('win');
+                saveData();
+                window.initSpaceRaceGame();
+                return;
+            }
+
+            saveData();
+            window.initSpaceRaceGame();
+            const timer = setTimeout(() => {
+                const gg = ensureSpaceRaceState();
+                const pp = gg.play;
+                if (!pp || pp.status !== 'playing') return;
+                const current = pp.players.find(x => x.id === playerId);
+                if (!current) return;
+                spaceRaceAssignQuestion(current, gg.settings);
+                if (pp.turnMode) pp.activeTurnIndex = (pp.activeTurnIndex + 1) % pp.players.length;
+                saveData();
+                window.initSpaceRaceGame();
+            }, correct ? 600 : 720);
+            window.spaceRaceTimers.push(timer);
+        };
+
+        window.backToSpaceRaceConfig = function() {
+            const g = ensureSpaceRaceState();
+            spaceRaceClearTimers();
+            if (window.isInteractiveGameFullscreen && window.isInteractiveGameFullscreen()) window.exitInteractiveGameFullscreen();
+            g.view = 'config';
+            g.play = null;
+            saveData();
+            setTimeout(() => window.initSpaceRaceGame(), 80);
+        };
+
+        window.leaveSpaceRaceToGameMenu = function() {
+            spaceRaceClearTimers();
+            if (window.isInteractiveGameFullscreen && window.isInteractiveGameFullscreen()) window.exitInteractiveGameFullscreen();
+            const g = ensureSpaceRaceState();
+            g.view = 'config';
+            g.play = null;
+            state.activeGame = null;
+            saveData();
+            setTimeout(() => renderLayout(), 80);
+        };
+
+        window.toggleSpaceRaceSound = function() {
+            const g = ensureSpaceRaceState();
+            g.settings.soundEnabled = !g.settings.soundEnabled;
+            saveData();
+            window.initSpaceRaceGame();
+        };
+
+        function spaceRaceQuestionEditorRows(g) {
+            return g.questions.map((q, qi) => {
+                let ci = (q.options || []).findIndex(o => o.isCorrect);
+                if (ci < 0) ci = 0;
+                return `
+                    <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-cyan-100 text-cyan-700 font-black flex items-center justify-center">${qi + 1}</div>
+                            <input value="${mfgEsc(q.text)}" oninput="updateSpaceRaceQuestion(${qi},'text',this.value)" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-800 outline-none focus:border-cyan-400" placeholder="Nội dung câu hỏi">
+                            <button onclick="deleteSpaceRaceQuestion(${qi})" class="w-9 h-9 rounded-xl bg-red-50 text-red-500 hover:bg-red-100"><i class="ph-bold ph-trash"></i></button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            ${(q.options || []).map((o, oi) => `
+                                <div class="flex items-center gap-2 bg-slate-50 rounded-xl p-2 border border-slate-100">
+                                    <span class="w-7 h-7 rounded-lg bg-slate-200 text-slate-600 text-xs font-black flex items-center justify-center">${String.fromCharCode(65 + oi)}</span>
+                                    <input value="${mfgEsc(o.text)}" oninput="updateSpaceRaceQuestion(${qi},'option',this.value,${oi})" class="flex-1 min-w-0 bg-white px-3 py-2 rounded-lg border border-slate-200 text-sm font-semibold outline-none focus:border-cyan-400">
+                                </div>`).join('')}
+                        </div>
+                        <div class="flex items-center gap-2 text-xs font-bold text-slate-600">
+                            <span>Đáp án đúng:</span>
+                            <select onchange="updateSpaceRaceQuestion(${qi},'correct',this.value)" class="px-3 py-2 rounded-lg border border-slate-200 bg-white outline-none">
+                                ${[0,1,2,3].map(i => `<option value="${i}" ${i===ci?'selected':''}>${String.fromCharCode(65+i)}. ${mfgEsc(q.options?.[i]?.text || '')}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        function renderSpaceRaceConfig(container, g) {
+            const grade = g.settings.grade || inferHomeroomGrade();
+            const gradeOptions = [1,2,3,4,5].map(n => `<option value="Lớp ${n}" ${grade===`Lớp ${n}`?'selected':''}>Lớp ${n}</option>`).join('');
+            const isTeam = g.settings.playerMode === 'team';
+            const selectedCount = isTeam ? g.settings.selectedTeamNames.length : g.settings.selectedPlayerIds.length;
+            const contestantCards = isTeam
+                ? (state.groups || []).map((gr, idx) => {
+                    const checked = g.settings.selectedTeamNames.map(String).includes(String(gr.name));
+                    const count = (state.students || []).filter(s => String(s.group) === String(gr.name)).length;
+                    return `<label class="cursor-pointer flex items-center gap-3 p-3 rounded-2xl border ${checked?'border-cyan-400 bg-cyan-50 ring-2 ring-cyan-100':'border-slate-200 bg-white hover:bg-slate-50'} transition-all">
+                        <input type="checkbox" ${checked?'checked':''} onchange="toggleSpaceRaceContestant('team','${escapeInlineJs(gr.name)}',this.checked)" class="w-5 h-5 accent-cyan-600">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 text-white flex items-center justify-center font-black"><i class="ph-fill ph-users-three"></i></div>
+                        <div class="min-w-0"><div class="font-black text-slate-800 truncate">${mfgEsc(gr.name)}</div><div class="text-xs text-slate-500">${count} học sinh</div></div>
+                    </label>`;
+                }).join('')
+                : (state.students || []).map((s, idx) => {
+                    const checked = g.settings.selectedPlayerIds.map(String).includes(String(s.id));
+                    return `<label class="cursor-pointer flex items-center gap-3 p-3 rounded-2xl border ${checked?'border-cyan-400 bg-cyan-50 ring-2 ring-cyan-100':'border-slate-200 bg-white hover:bg-slate-50'} transition-all">
+                        <input type="checkbox" ${checked?'checked':''} onchange="toggleSpaceRaceContestant('student','${escapeInlineJs(String(s.id))}',this.checked)" class="w-5 h-5 accent-cyan-600">
+                        ${getAvatarImg(s.avatarUrl, s.name, 'w-10 h-10')}
+                        <div class="min-w-0"><div class="font-black text-slate-800 truncate">${mfgEsc(s.name)}</div><div class="text-xs text-slate-500 truncate">${mfgEsc(s.group || 'Học sinh')}</div></div>
+                    </label>`;
+                }).join('');
+
+            const rows = spaceRaceQuestionEditorRows(g);
+            container.innerHTML = `
+                <div class="w-full h-full overflow-y-auto custom-scrollbar bg-gradient-to-br from-cyan-50 via-white to-violet-50 rounded-[1.5rem] p-4 md:p-6">
+                    <div class="max-w-7xl mx-auto space-y-5">
+                        <div class="relative overflow-hidden bg-gradient-to-r from-[#0f172a] via-[#172554] to-[#312e81] rounded-[2rem] p-5 md:p-6 text-white shadow-xl border border-cyan-400/20">
+                            <div class="absolute inset-0 opacity-30" style="background-image:radial-gradient(circle at 20% 30%,#67e8f9 0 1px,transparent 2px),radial-gradient(circle at 70% 60%,#fff 0 1px,transparent 2px);background-size:54px 54px,73px 73px"></div>
+                            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-16 h-16 rounded-2xl bg-cyan-400/15 border border-cyan-300/30 flex items-center justify-center text-4xl shadow-[0_0_30px_rgba(34,211,238,.25)]">🚀</div>
+                                    <div><div class="text-xs uppercase tracking-[.22em] text-cyan-200 font-black">Trò chơi kiến thức</div><h3 class="text-2xl md:text-3xl font-black">Phi thuyền vũ trụ</h3><p class="text-sm text-slate-300 mt-1">Trả lời đúng để tăng tốc và đưa phi thuyền về đích trước.</p></div>
+                                </div>
+                                <button onclick="startSpaceRaceGame()" class="px-7 py-3.5 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-black rounded-2xl shadow-[0_10px_30px_rgba(34,211,238,.25)] hover:-translate-y-0.5 transition-all"><i class="ph-fill ph-play-circle mr-1"></i> BẮT ĐẦU CHƠI</button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 xl:grid-cols-[1.05fr_.95fr] gap-5">
+                            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                                <div class="font-black text-slate-800 flex items-center gap-2"><i class="ph-fill ph-sliders-horizontal text-cyan-500"></i> Cấu hình trước khi chơi</div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Khối lớp</span><select onchange="updateSpaceRaceSetting('grade',this.value)" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white font-bold outline-none focus:border-cyan-400">${gradeOptions}</select></label>
+                                    <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Môn / chủ đề</span><input value="${mfgEsc(g.settings.topic)}" oninput="updateSpaceRaceSetting('topic',this.value)" placeholder="VD: Toán - Phép nhân; Tiếng Việt..." class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-cyan-400"></label>
+                                    <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Số câu đúng để về đích</span><input type="number" min="1" max="20" value="${g.settings.questionsPerPlayer}" oninput="updateSpaceRaceSetting('questionsPerPlayer',this.value,'number')" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-cyan-400"></label>
+                                    <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Đối tượng thi đấu</span><select onchange="updateSpaceRaceSetting('playerMode',this.value)" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white font-bold outline-none focus:border-cyan-400"><option value="student" ${!isTeam?'selected':''}>Học sinh</option><option value="team" ${isTeam?'selected':''}>Đội / Tổ</option></select></label>
+                                </div>
+                                <div class="flex flex-wrap gap-4 pt-2 text-sm font-bold text-slate-600">
+                                    <label class="flex items-center gap-2"><input type="checkbox" ${g.settings.shuffleQuestions?'checked':''} onchange="updateSpaceRaceSetting('shuffleQuestions',this.checked,'boolean')" class="w-4 h-4 accent-cyan-600"> Đảo câu hỏi</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" ${g.settings.shuffleAnswers?'checked':''} onchange="updateSpaceRaceSetting('shuffleAnswers',this.checked,'boolean')" class="w-4 h-4 accent-cyan-600"> Đảo đáp án</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" ${g.settings.soundEnabled?'checked':''} onchange="updateSpaceRaceSetting('soundEnabled',this.checked,'boolean')" class="w-4 h-4 accent-cyan-600"> Âm thanh</label>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col min-h-[260px]">
+                                <div class="flex items-center justify-between gap-3 mb-3"><div><div class="font-black text-slate-800">Chọn ${isTeam?'đội / tổ':'học sinh'} chơi</div><div class="text-xs text-slate-500 mt-1">Đã chọn ${selectedCount}. Từ 2–4 người: chơi đồng thời; trên 4: tự chuyển sang từng lượt.</div></div><div class="px-3 py-1.5 bg-cyan-50 text-cyan-700 border border-cyan-100 rounded-full text-xs font-black">${selectedCount} đã chọn</div></div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[310px] overflow-y-auto custom-scrollbar pr-1">${contestantCards || '<div class="col-span-full text-center text-slate-400 py-8">Chưa có dữ liệu học sinh/đội.</div>'}</div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                                <div><div class="font-black text-slate-800"><i class="ph-fill ph-question text-cyan-500 mr-2"></i>Bộ câu hỏi thi đấu (${g.questions.length})</div><div class="text-xs text-slate-500 mt-1">AI tạo câu hỏi vào Thư viện trước; chọn câu trong thư viện để đưa vào bộ thi đấu.</div></div>
+                                <div class="flex flex-wrap gap-2">
+                                    <button onclick="openGameAIGeneratorModal('space-race')" class="px-4 py-2 bg-fuchsia-600 text-white rounded-xl text-xs font-black hover:bg-fuchsia-700"><i class="ph-fill ph-sparkle mr-1"></i> AI tạo nhanh</button>
+                                    <button onclick="openGameQuestionLibrary('space-race')" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700"><i class="ph-fill ph-books mr-1"></i> Thư viện (${g.questionLibrary.length})</button>
+                                    <button onclick="addSpaceRaceQuestion()" class="px-4 py-2 bg-cyan-500 text-white rounded-xl text-xs font-black hover:bg-cyan-600"><i class="ph-bold ph-plus mr-1"></i> Thêm câu hỏi</button>
+                                </div>
+                            </div>
+                            <div class="p-4 space-y-4">${rows || '<div class="py-12 text-center text-slate-400"><i class="ph-duotone ph-books text-5xl mb-2"></i><div class="font-bold">Chưa có câu hỏi trong bộ thi đấu</div><div class="text-sm mt-1">Tạo bằng AI hoặc mở Thư viện để chọn câu hỏi.</div></div>'}</div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function spaceRacePlayerProgress(player, target) {
+            return Math.max(0, Math.min(100, Math.round((player.correctCount / target) * 100)));
+        }
+
+        function spaceRaceRenderRanking(p) {
+            return spaceRaceRanking(p.players).map((pl, idx) => {
+                const progress = spaceRacePlayerProgress(pl, p.targetCorrect);
+                const pal = spaceRacePalette(pl.colorIndex);
+                return `<div class="rounded-xl border border-white/10 bg-white/[.07] p-3 flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-black text-slate-950" style="background:${idx===0?'#fde047':idx===1?'#cbd5e1':idx===2?'#fdba74':'#e2e8f0'}">${idx+1}</div>
+                    <div class="min-w-0 flex-1"><div class="font-black text-white truncate">${mfgEsc(pl.name)}</div><div class="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full" style="width:${progress}%;background:${pal.main}"></div></div></div>
+                    <div class="font-black text-cyan-100">${progress}%</div>
+                </div>`;
+            }).join('');
+        }
+
+        function spaceRaceRenderTrack(p) {
+            const finishLeft = 92;
+            const ships = p.players.map((pl, idx) => {
+                const progress = spaceRacePlayerProgress(pl, p.targetCorrect);
+                const x = 4 + progress * .86;
+                const pal = spaceRacePalette(pl.colorIndex);
+                const ship = idx % 2 ? '🛸' : '🚀';
+                return `<div class="sr-lane relative min-h-[48px] border-b border-white/[.06] last:border-b-0">
+                    <div class="absolute top-1/2 -translate-y-1/2 z-20 transition-all duration-700 ease-out ${pl.feedback==='correct'?'sr-boost':''}" style="left:${x}%;filter:drop-shadow(0 0 10px ${pal.glow})">
+                        <div class="relative flex items-center gap-2 -translate-x-1/2">
+                            <div class="sr-flame absolute right-[72%] top-1/2 -translate-y-1/2 w-9 h-2 rounded-full opacity-${pl.feedback==='correct'?'100':'60'}" style="background:linear-gradient(90deg,transparent,${pal.trail},#fff)"></div>
+                            <div class="text-3xl md:text-4xl relative z-10">${ship}</div>
+                            <div class="relative z-10 px-2 py-1 rounded-lg bg-slate-950/80 border border-white/10 text-[10px] md:text-xs font-black whitespace-nowrap text-white">${mfgEsc(pl.name)}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+            return `<div class="relative rounded-2xl border border-violet-400/30 bg-[#020617]/80 overflow-hidden min-h-[200px]">
+                <div class="absolute inset-0 sr-stars opacity-70"></div>
+                <div class="absolute left-[3%] top-0 bottom-0 w-[2px] bg-cyan-300/50"></div><div class="absolute left-[3%] top-2 -translate-x-1/2 text-[9px] font-black tracking-wider text-cyan-100 bg-slate-950/80 px-2 py-1 rounded">XUẤT PHÁT</div>
+                <div class="absolute top-0 bottom-0 z-10" style="left:${finishLeft}%"><div class="w-3 h-full opacity-90" style="background:repeating-linear-gradient(0deg,#fff 0 8px,#0f172a 8px 16px)"></div><div class="absolute top-2 -left-5 text-xs font-black text-white bg-slate-950/80 px-2 py-1 rounded">ĐÍCH</div></div>
+                <div class="absolute right-[18%] top-4 w-16 h-16 rounded-full bg-gradient-to-br from-fuchsia-500 to-purple-900 opacity-60 shadow-[0_0_35px_rgba(217,70,239,.45)]"></div>
+                <div class="absolute right-[40%] bottom-4 w-9 h-9 rounded-full bg-gradient-to-br from-amber-300 to-orange-700 opacity-45"></div>
+                <div class="relative z-[5] py-3 max-h-[38vh] overflow-y-auto custom-scrollbar">${ships}</div>
+            </div>`;
+        }
+
+        function spaceRaceQuestionPanel(player, p, active = true) {
+            const q = player.currentQuestion || {text:'Đang chuẩn bị câu hỏi...',options:[]};
+            const progress = spaceRacePlayerProgress(player, p.targetCorrect);
+            const pal = spaceRacePalette(player.colorIndex);
+            const feedback = player.feedback === 'correct' ? 'ring-4 ring-emerald-400/70' : player.feedback === 'wrong' ? 'ring-4 ring-red-400/70' : '';
+            return `<div class="sr-question-panel ${feedback} rounded-2xl border border-white/10 bg-[#071526]/95 overflow-hidden shadow-xl flex flex-col min-h-[300px] ${!active?'opacity-55':''}">
+                <div class="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-3" style="background:linear-gradient(90deg,${pal.main}22,transparent)">
+                    <div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl flex items-center justify-center text-xl" style="background:${pal.main}25;border:1px solid ${pal.main}55">🚀</div><div class="min-w-0"><div class="font-black text-white truncate">${mfgEsc(player.name)}</div><div class="text-[11px] text-slate-400">${player.correctCount}/${p.targetCorrect} câu đúng · ${progress}%</div></div></div>
+                    ${p.turnMode ? `<span class="px-3 py-1 rounded-full text-xs font-black ${active?'bg-cyan-400 text-slate-950':'bg-white/10 text-slate-400'}">${active?'ĐẾN LƯỢT':'CHỜ LƯỢT'}</span>` : ''}
+                </div>
+                <div class="px-4 md:px-5 py-4 bg-gradient-to-r from-cyan-500/20 via-blue-500/10 to-violet-500/20 border-b border-cyan-400/20">
+                    <div class="sr-question-text font-black text-white leading-[1.18] text-center">${mfgEsc(q.text)}</div>
+                </div>
+                <div class="p-3 md:p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+                    ${(q.options || []).map((o, oi) => `<button ${active && !player.locked ? '' : 'disabled'} onclick="submitSpaceRaceAnswer('${player.id}',${oi})" class="sr-answer group rounded-xl border border-cyan-400/25 bg-[#0b2934] hover:bg-[#0f3b48] disabled:cursor-not-allowed disabled:opacity-70 p-3 md:p-4 min-h-[78px] flex items-center gap-3 text-left transition-all hover:-translate-y-0.5 hover:border-cyan-300/60">
+                        <span class="w-9 h-9 rounded-lg bg-slate-950/70 border border-amber-400/30 text-amber-300 font-black flex items-center justify-center flex-shrink-0">${String.fromCharCode(65+oi)}</span><span class="sr-answer-text font-bold text-white leading-tight">${mfgEsc(o.text)}</span>
+                    </button>`).join('')}
+                </div>
+            </div>`;
+        }
+
+        function renderSpaceRacePlay(container, g) {
+            const p = g.play;
+            if (!p) { g.view = 'config'; return renderSpaceRaceConfig(container, g); }
+            const ranking = spaceRaceRanking(p.players);
+            const leadProgress = ranking.length ? spaceRacePlayerProgress(ranking[0], p.targetCorrect) : 0;
+            let questionArea = '';
+            if (p.turnMode) {
+                const active = p.players[p.activeTurnIndex] || p.players[0];
+                questionArea = `<div class="max-w-5xl mx-auto w-full">${spaceRaceQuestionPanel(active, p, true)}</div>`;
+            } else {
+                questionArea = `<div class="grid grid-cols-1 ${p.players.length>1?'lg:grid-cols-2':''} gap-3 md:gap-4">${p.players.map(pl => spaceRaceQuestionPanel(pl,p,true)).join('')}</div>`;
+            }
+
+            let finishOverlay = '';
+            if (p.status === 'finished') {
+                const standings = spaceRaceRanking(p.players);
+                const rows = standings.map((pl, idx) => {
+                    const acc = pl.attempts ? Math.round(pl.correctCount / pl.attempts * 100) : 0;
+                    return `<div class="grid grid-cols-[44px_1fr_auto_auto] gap-3 items-center rounded-xl ${idx===0?'bg-amber-50 border-amber-200':'bg-slate-50 border-slate-200'} border p-3 text-left"><div class="text-2xl text-center">${idx===0?'🥇':idx===1?'🥈':idx===2?'🥉':idx+1}</div><div class="font-black text-slate-800 truncate">${mfgEsc(pl.name)}</div><div class="text-sm font-black text-emerald-600">${pl.correctCount} đúng</div><div class="text-sm font-black text-indigo-600">${acc}%</div></div>`;
+                }).join('');
+                finishOverlay = `<div class="absolute inset-0 z-[80] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 md:p-6"><div class="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl overflow-hidden border-4 border-cyan-300"><div class="bg-gradient-to-r from-indigo-700 via-violet-700 to-cyan-600 text-white p-6 text-center"><div class="text-6xl mb-2">🏆🚀</div><div class="text-xs uppercase tracking-[.22em] font-black text-cyan-100">Hoàn thành hành trình</div><div class="text-3xl font-black mt-2">${mfgEsc(standings[0]?.name || 'Người chơi')} chiến thắng!</div></div><div class="p-5 md:p-6 space-y-2 max-h-[45vh] overflow-y-auto custom-scrollbar">${rows}</div><div class="p-5 border-t bg-slate-50 grid grid-cols-1 sm:grid-cols-2 gap-3"><button onclick="startSpaceRaceGame()" class="py-3.5 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-black"><i class="ph-bold ph-arrow-clockwise mr-1"></i> Chơi lại</button><button onclick="leaveSpaceRaceToGameMenu()" class="py-3.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-black"><i class="ph-fill ph-game-controller mr-1"></i> Về Góc trò chơi</button></div></div></div>`;
+            }
+
+            container.innerHTML = `
+                <style>
+                    @keyframes srStarMove{from{background-position:0 0,0 0}to{background-position:-160px 70px,110px -60px}}
+                    @keyframes srBoost{0%{transform:translateX(-50%) scale(1)}35%{transform:translateX(-42%) scale(1.22)}100%{transform:translateX(-50%) scale(1)}}
+                    @keyframes srFlame{0%,100%{transform:scaleX(.75);opacity:.55}50%{transform:scaleX(1.25);opacity:1}}
+                    .sr-stars{background-image:radial-gradient(#fff 1px,transparent 1px),radial-gradient(#67e8f9 1px,transparent 1px);background-size:44px 44px,79px 79px;animation:srStarMove 18s linear infinite}
+                    .sr-boost>div{animation:srBoost .65s ease-out}.sr-flame{animation:srFlame .45s ease-in-out infinite;transform-origin:right center}
+                    .sr-question-text{font-size:clamp(24px,2.1vw,32px)}.sr-answer-text{font-size:clamp(17px,1.35vw,22px)}
+                    @media(max-width:768px){.sr-question-text{font-size:clamp(21px,5.5vw,28px)}.sr-answer-text{font-size:clamp(16px,4.2vw,20px)}}
+                </style>
+                <div id="space-race-game-container" class="interactive-game-play-shell w-full h-full min-h-[680px] relative overflow-y-auto custom-scrollbar bg-gradient-to-b from-[#07142d] via-[#081d3c] to-[#07182e] text-white select-none">
+                    <div class="absolute inset-0 sr-stars opacity-20 pointer-events-none"></div>
+                    <div class="relative z-10 min-h-full flex flex-col">
+                        <div class="sticky top-0 z-50 min-h-14 px-3 md:px-4 py-2 bg-[#0b1b38]/95 backdrop-blur-xl border-b border-cyan-400/20 flex items-center justify-between gap-2 shadow-xl">
+                            <button onclick="backToSpaceRaceConfig()" class="h-9 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 font-black text-xs md:text-sm flex items-center gap-1"><i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">Về sảnh</span></button>
+                            <div class="text-center min-w-0 flex-1"><div class="font-black text-sm md:text-lg tracking-wide truncate">🚀 ${mfgEsc(g.settings.title || 'PHI THUYỀN VŨ TRỤ')}</div><div class="text-[10px] md:text-xs text-cyan-200 font-bold">Mục tiêu ${p.targetCorrect} câu đúng · Lượt trả lời ${p.totalAttempts + 1}${p.turnMode ? ` · Đến lượt ${mfgEsc(p.players[p.activeTurnIndex]?.name || '')}` : ''}</div></div>
+                            <div class="flex items-center gap-1.5"><span class="hidden md:inline-flex h-9 px-3 rounded-xl bg-white/10 border border-white/10 items-center font-black text-xs">Dẫn đầu ${leadProgress}%</span><button onclick="toggleSpaceRaceSound()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10" title="Bật/tắt âm thanh"><i class="ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}"></i></button><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10" title="Toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-out"></i></button></div>
+                        </div>
+
+                        <div class="p-2 md:p-3 grid grid-cols-1 xl:grid-cols-[1fr_260px] gap-3">
+                            <div>${spaceRaceRenderTrack(p)}</div>
+                            <aside class="rounded-2xl border border-white/10 bg-white/[.06] backdrop-blur-sm p-3 xl:max-h-[38vh] overflow-y-auto custom-scrollbar"><div class="font-black text-amber-300 mb-2 flex items-center gap-2"><i class="ph-fill ph-trophy"></i> Bảng xếp hạng realtime</div><div class="space-y-2">${spaceRaceRenderRanking(p)}</div></aside>
+                        </div>
+
+                        <div class="px-2 md:px-3 pb-3 flex-1">${questionArea}</div>
+                    </div>
+                    ${finishOverlay}
+                </div>`;
+            setTimeout(() => window.updateInteractiveGameFullscreenButtons && window.updateInteractiveGameFullscreenButtons(), 0);
+        }
+
+        window.initSpaceRaceGame = function() {
+            const container = document.getElementById('game-mount-point');
+            if (!container) return;
+            const g = ensureSpaceRaceState();
+            if (g.view === 'play') renderSpaceRacePlay(container, g);
+            else renderSpaceRaceConfig(container, g);
         };
 
         // =============================================================
@@ -6666,6 +7216,9 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                         </button>
                         <button onclick="switchGame('ngon-tay-than-ky')" class="px-6 py-3.5 bg-white border-2 border-amber-200 text-amber-700 font-bold rounded-2xl shadow-sm hover:shadow-md hover:bg-amber-50 hover:border-amber-300 transition-all flex items-center gap-2 ${state.activeGame === 'ngon-tay-than-ky' ? 'ring-4 ring-amber-100 bg-amber-50' : ''}">
                             <i class="ph-fill ph-hand-pointing text-xl"></i> Ngón Tay Thần Kỳ
+                        </button>
+                        <button onclick="switchGame('space-race')" class="px-6 py-3.5 bg-white border-2 border-cyan-200 text-cyan-700 font-bold rounded-2xl shadow-sm hover:shadow-md hover:bg-cyan-50 hover:border-cyan-300 transition-all flex items-center gap-2 ${state.activeGame === 'space-race' ? 'ring-4 ring-cyan-100 bg-cyan-50' : ''}">
+                            <i class="ph-fill ph-rocket-launch text-xl"></i> 🚀 Phi thuyền vũ trụ
                         </button>
                     </div>
 
