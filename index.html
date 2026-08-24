@@ -2379,6 +2379,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
 
         window.cleanupSpaceRaceGame = function(exitFullscreen = false) {
             spaceRaceClearTimers();
+            if (typeof spaceRaceDetachKeyboard === 'function') spaceRaceDetachKeyboard();
             if (exitFullscreen && window.isInteractiveGameFullscreen && window.isInteractiveGameFullscreen()) window.exitInteractiveGameFullscreen();
         };
 
@@ -2419,7 +2420,16 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const g = ensureSpaceRaceState();
             const key = mode === 'team' ? 'selectedTeamNames' : 'selectedPlayerIds';
             const set = new Set((g.settings[key] || []).map(String));
-            if (checked) set.add(String(value)); else set.delete(String(value));
+            if (checked) {
+                if (!set.has(String(value)) && set.size >= 2) {
+                    showToast('Phi thuyền vũ trụ chỉ thi đấu đối kháng 2 người/2 đội.', 'error');
+                    window.initSpaceRaceGame();
+                    return;
+                }
+                set.add(String(value));
+            } else {
+                set.delete(String(value));
+            }
             g.settings[key] = [...set];
             saveData();
             window.initSpaceRaceGame();
@@ -2461,120 +2471,268 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             return { id: q.id, text: String(q.text || ''), options: (q.options || []).map(o => ({text:String(o.text || ''), isCorrect:!!o.isCorrect})) };
         }
 
-        function spaceRaceAssignQuestion(player, settings) {
-            if (!player.questionBank.length) return;
-            if (player.qCursor >= player.questionBank.length) {
-                player.qCursor = 0;
-                if (settings.shuffleQuestions) player.questionBank.sort(() => Math.random() - .5);
-            }
-            const q = spaceRaceCloneQuestion(player.questionBank[player.qCursor]);
-            player.qCursor += 1;
-            if (settings.shuffleAnswers) q.options.sort(() => Math.random() - .5);
-            player.currentQuestion = q;
-            player.feedback = null;
-            player.locked = false;
+        const SPACE_RACE_KEYSETS = [
+            ['Q', 'W', 'A', 'S'],
+            ['O', 'P', 'K', 'L']
+        ];
+        const SPACE_RACE_QUESTION_TIME_MS = 20000;
+
+        function spaceRaceComparePlayers(a, b, includeName = true) {
+            if ((b.correctCount || 0) !== (a.correctCount || 0)) return (b.correctCount || 0) - (a.correctCount || 0);
+            if ((a.correctResponseMs || 0) !== (b.correctResponseMs || 0)) return (a.correctResponseMs || 0) - (b.correctResponseMs || 0);
+            return includeName ? String(a.name || '').localeCompare(String(b.name || ''), 'vi') : 0;
         }
 
         function spaceRaceRanking(players) {
-            return [...players].sort((a,b) => {
-                if (b.correctCount !== a.correctCount) return b.correctCount - a.correctCount;
-                const aa = a.attempts ? a.correctCount / a.attempts : 0;
-                const ba = b.attempts ? b.correctCount / b.attempts : 0;
-                if (ba !== aa) return ba - aa;
-                return a.name.localeCompare(b.name, 'vi');
+            return [...players].sort((a, b) => spaceRaceComparePlayers(a, b, true));
+        }
+
+        function spaceRaceFormatMs(ms) {
+            const safe = Math.max(0, Number(ms) || 0);
+            return `${(safe / 1000).toFixed(2)}s`;
+        }
+
+        function spaceRaceDetachKeyboard() {
+            if (window.spaceRaceKeyListener) {
+                document.removeEventListener('keydown', window.spaceRaceKeyListener);
+                window.spaceRaceKeyListener = null;
+            }
+        }
+
+        function spaceRaceAttachKeyboard() {
+            spaceRaceDetachKeyboard();
+            window.spaceRaceKeyListener = function(e) {
+                if (e.repeat) return;
+                const g = ensureSpaceRaceState();
+                const p = g.play;
+                if (!p || g.view !== 'play' || p.status !== 'playing' || state.activeGame !== 'space-race') return;
+                const key = String(e.key || '').toUpperCase();
+                let playerIndex = -1;
+                let optionIndex = -1;
+                for (let i = 0; i < SPACE_RACE_KEYSETS.length; i++) {
+                    const idx = SPACE_RACE_KEYSETS[i].indexOf(key);
+                    if (idx !== -1) {
+                        playerIndex = i;
+                        optionIndex = idx;
+                        break;
+                    }
+                }
+                if (playerIndex < 0 || optionIndex < 0) return;
+                e.preventDefault();
+                const player = p.players[playerIndex];
+                if (!player) return;
+                window.submitSpaceRaceAnswer(player.id, optionIndex, 'keyboard');
+            };
+            document.addEventListener('keydown', window.spaceRaceKeyListener);
+        }
+
+        function spaceRaceBuildSharedQuestionBank(g) {
+            let bank = g.questions.map(spaceRaceCloneQuestion);
+            if (g.settings.shuffleQuestions) bank.sort(() => Math.random() - .5);
+            const requested = Math.max(1, Number(g.settings.questionsPerPlayer) || bank.length);
+            bank = bank.slice(0, Math.min(requested, bank.length));
+            if (g.settings.shuffleAnswers) {
+                bank.forEach(q => q.options.sort(() => Math.random() - .5));
+            }
+            return bank;
+        }
+
+        function spaceRaceUpdateClockUI() {
+            const g = ensureSpaceRaceState();
+            const p = g.play;
+            if (!p || p.status !== 'playing') return;
+            const el = document.getElementById('sr-round-timer');
+            if (!el) return;
+            const leftMs = Math.max(0, (p.questionEndsAt || 0) - Date.now());
+            const sec = Math.ceil(leftMs / 1000);
+            el.textContent = `${sec}s`;
+            el.classList.toggle('text-red-300', sec <= 5);
+            el.classList.toggle('animate-pulse', sec <= 5);
+        }
+
+        function spaceRaceScheduleRoundTimeout(roundToken) {
+            const g = ensureSpaceRaceState();
+            const p = g.play;
+            if (!p || p.status !== 'playing' || p.roundToken !== roundToken) return;
+            const remaining = Math.max(0, p.questionEndsAt - Date.now());
+
+            const ticker = setInterval(spaceRaceUpdateClockUI, 120);
+            window.spaceRaceTimers.push(ticker);
+
+            const timer = setTimeout(() => {
+                const gg = ensureSpaceRaceState();
+                const pp = gg.play;
+                if (!pp || pp.status !== 'playing' || pp.roundToken !== roundToken || pp.advanceScheduled) return;
+                pp.players.forEach(pl => {
+                    if (!pl.locked) {
+                        pl.locked = true;
+                        pl.feedback = 'timeout';
+                        pl.selectedOption = null;
+                        pl.answerMs = null;
+                    }
+                });
+                saveData();
+                window.initSpaceRaceGame();
+                spaceRaceScheduleAdvance(620);
+            }, remaining);
+            window.spaceRaceTimers.push(timer);
+            setTimeout(spaceRaceUpdateClockUI, 0);
+        }
+
+        function spaceRaceBeginRound() {
+            const g = ensureSpaceRaceState();
+            const p = g.play;
+            if (!p || p.status !== 'playing') return;
+            if (p.roundIndex >= p.totalRounds) return spaceRaceFinishGame();
+
+            spaceRaceClearTimers();
+            p.currentQuestion = spaceRaceCloneQuestion(p.questions[p.roundIndex]);
+            p.roundStartedAt = Date.now();
+            p.questionEndsAt = p.roundStartedAt + SPACE_RACE_QUESTION_TIME_MS;
+            p.roundToken = `${p.roundIndex}-${p.roundStartedAt}-${Math.random()}`;
+            p.advanceScheduled = false;
+            p.players.forEach(pl => {
+                pl.locked = false;
+                pl.feedback = null;
+                pl.selectedOption = null;
+                pl.answerMs = null;
             });
+            saveData();
+            window.initSpaceRaceGame();
+            spaceRaceScheduleRoundTimeout(p.roundToken);
+        }
+
+        function spaceRaceScheduleAdvance(delay = 650) {
+            const g = ensureSpaceRaceState();
+            const p = g.play;
+            if (!p || p.status !== 'playing' || p.advanceScheduled) return;
+            p.advanceScheduled = true;
+            spaceRaceClearTimers();
+            const token = p.roundToken;
+            const timer = setTimeout(() => {
+                const gg = ensureSpaceRaceState();
+                const pp = gg.play;
+                if (!pp || pp.status !== 'playing' || pp.roundToken !== token) return;
+                pp.roundIndex += 1;
+                pp.advanceScheduled = false;
+                if (pp.roundIndex >= pp.totalRounds) spaceRaceFinishGame();
+                else spaceRaceBeginRound();
+            }, delay);
+            window.spaceRaceTimers.push(timer);
+        }
+
+        function spaceRaceFinishGame() {
+            const g = ensureSpaceRaceState();
+            const p = g.play;
+            if (!p) return;
+            spaceRaceClearTimers();
+            p.status = 'finished';
+            p.endedAt = Date.now();
+
+            const a = p.players[0];
+            const b = p.players[1];
+            const exactTie = !!(a && b &&
+                (a.correctCount || 0) === (b.correctCount || 0) &&
+                (a.correctResponseMs || 0) === (b.correctResponseMs || 0));
+            p.isDraw = exactTie;
+            p.winnerId = exactTie ? null : (spaceRaceRanking(p.players)[0]?.id || null);
+
+            spaceRaceSound('win');
+            saveData();
+            window.initSpaceRaceGame();
         }
 
         window.startSpaceRaceGame = function() {
             const g = ensureSpaceRaceState();
             const contestants = spaceRaceContestants();
-            if (contestants.length < 2) return showToast('Hãy chọn ít nhất 2 học sinh/đội chơi!', 'error');
+            if (contestants.length !== 2) return showToast('Hãy chọn đúng 2 học sinh hoặc 2 đội để thi đấu!', 'error');
             if (!g.questions.length) return showToast('Bộ câu hỏi đang trống. Hãy chọn câu từ Thư viện hoặc tạo bằng AI!', 'error');
-            const target = Math.max(1, Math.min(20, Number(g.settings.questionsPerPlayer) || 5));
+
+            const bank = spaceRaceBuildSharedQuestionBank(g);
+            if (!bank.length) return showToast('Không có câu hỏi hợp lệ để bắt đầu!', 'error');
+
             spaceRaceClearTimers();
-            const players = contestants.map((c, idx) => {
-                const bank = g.questions.map(spaceRaceCloneQuestion);
-                if (g.settings.shuffleQuestions) bank.sort(() => Math.random() - .5);
-                const p = {
-                    ...c,
-                    colorIndex: idx,
-                    questionBank: bank,
-                    qCursor: 0,
-                    currentQuestion: null,
-                    correctCount: 0,
-                    attempts: 0,
-                    locked: false,
-                    feedback: null
-                };
-                spaceRaceAssignQuestion(p, g.settings);
-                return p;
-            });
+            spaceRaceDetachKeyboard();
+
+            const players = contestants.map((c, idx) => ({
+                ...c,
+                colorIndex: idx,
+                correctCount: 0,
+                attempts: 0,
+                locked: false,
+                feedback: null,
+                selectedOption: null,
+                answerMs: null,
+                totalResponseMs: 0,
+                correctResponseMs: 0
+            }));
+
             g.play = {
                 status: 'playing',
-                targetCorrect: target,
                 players,
-                activeTurnIndex: 0,
-                turnMode: players.length > 4,
+                questions: bank,
+                currentQuestion: null,
+                totalRounds: bank.length,
+                roundIndex: 0,
                 totalAttempts: 0,
                 startedAt: Date.now(),
-                winnerId: null
+                roundStartedAt: 0,
+                questionEndsAt: 0,
+                roundToken: null,
+                advanceScheduled: false,
+                winnerId: null,
+                isDraw: false
             };
             g.view = 'play';
             saveData();
-            window.initSpaceRaceGame();
+            spaceRaceAttachKeyboard();
+            spaceRaceBeginRound();
             setTimeout(() => window.enterInteractiveGameFullscreen && window.enterInteractiveGameFullscreen(), 80);
         };
 
-        window.submitSpaceRaceAnswer = function(playerId, optionIndex) {
+        window.submitSpaceRaceAnswer = function(playerId, optionIndex, source = 'keyboard') {
             const g = ensureSpaceRaceState();
             const p = g.play;
             if (!p || p.status !== 'playing') return;
-            const playerIndex = p.players.findIndex(x => x.id === playerId);
-            const player = p.players[playerIndex];
+
+            const player = p.players.find(x => x.id === playerId);
             if (!player || player.locked) return;
-            if (p.turnMode && playerIndex !== p.activeTurnIndex) return;
-            const q = player.currentQuestion;
+
+            const q = p.currentQuestion;
             const option = q?.options?.[optionIndex];
             if (!option) return;
 
             player.locked = true;
+            player.selectedOption = Number(optionIndex);
             player.attempts += 1;
             p.totalAttempts += 1;
+
+            const answerMs = Math.max(0, Math.min(SPACE_RACE_QUESTION_TIME_MS, Date.now() - (p.roundStartedAt || Date.now())));
+            player.answerMs = answerMs;
+            player.totalResponseMs += answerMs;
+
             const correct = !!option.isCorrect;
             player.feedback = correct ? 'correct' : 'wrong';
             if (correct) {
                 player.correctCount += 1;
+                player.correctResponseMs += answerMs;
                 spaceRaceSound('correct');
-            } else spaceRaceSound('wrong');
-
-            if (player.correctCount >= p.targetCorrect) {
-                p.status = 'finished';
-                p.winnerId = player.id;
-                spaceRaceSound('win');
-                saveData();
-                window.initSpaceRaceGame();
-                return;
+            } else {
+                spaceRaceSound('wrong');
             }
 
             saveData();
             window.initSpaceRaceGame();
-            const timer = setTimeout(() => {
-                const gg = ensureSpaceRaceState();
-                const pp = gg.play;
-                if (!pp || pp.status !== 'playing') return;
-                const current = pp.players.find(x => x.id === playerId);
-                if (!current) return;
-                spaceRaceAssignQuestion(current, gg.settings);
-                if (pp.turnMode) pp.activeTurnIndex = (pp.activeTurnIndex + 1) % pp.players.length;
-                saveData();
-                window.initSpaceRaceGame();
-            }, correct ? 600 : 720);
-            window.spaceRaceTimers.push(timer);
+
+            if (p.players.every(pl => pl.locked)) {
+                spaceRaceScheduleAdvance(700);
+            }
         };
 
         window.backToSpaceRaceConfig = function() {
             const g = ensureSpaceRaceState();
             spaceRaceClearTimers();
+            spaceRaceDetachKeyboard();
             if (window.isInteractiveGameFullscreen && window.isInteractiveGameFullscreen()) window.exitInteractiveGameFullscreen();
             g.view = 'config';
             g.play = null;
@@ -2584,6 +2742,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
 
         window.leaveSpaceRaceToGameMenu = function() {
             spaceRaceClearTimers();
+            spaceRaceDetachKeyboard();
             if (window.isInteractiveGameFullscreen && window.isInteractiveGameFullscreen()) window.exitInteractiveGameFullscreen();
             const g = ensureSpaceRaceState();
             g.view = 'config';
@@ -2661,7 +2820,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                             <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div class="flex items-center gap-4">
                                     <div class="w-16 h-16 rounded-2xl bg-cyan-400/15 border border-cyan-300/30 flex items-center justify-center text-4xl shadow-[0_0_30px_rgba(34,211,238,.25)]">🚀</div>
-                                    <div><div class="text-xs uppercase tracking-[.22em] text-cyan-200 font-black">Trò chơi kiến thức</div><h3 class="text-2xl md:text-3xl font-black">Phi thuyền vũ trụ</h3><p class="text-sm text-slate-300 mt-1">Trả lời đúng để tăng tốc và đưa phi thuyền về đích trước.</p></div>
+                                    <div><div class="text-xs uppercase tracking-[.22em] text-cyan-200 font-black">Trò chơi kiến thức</div><h3 class="text-2xl md:text-3xl font-black">Phi thuyền vũ trụ</h3><p class="text-sm text-slate-300 mt-1">2 người/2 đội cùng trả lời một câu hỏi bằng bàn phím; đúng thì phi thuyền tăng tốc.</p></div>
                                 </div>
                                 <button onclick="startSpaceRaceGame()" class="px-7 py-3.5 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-black rounded-2xl shadow-[0_10px_30px_rgba(34,211,238,.25)] hover:-translate-y-0.5 transition-all"><i class="ph-fill ph-play-circle mr-1"></i> BẮT ĐẦU CHƠI</button>
                             </div>
@@ -2673,7 +2832,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Khối lớp</span><select onchange="updateSpaceRaceSetting('grade',this.value)" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white font-bold outline-none focus:border-cyan-400">${gradeOptions}</select></label>
                                     <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Môn / chủ đề</span><input value="${mfgEsc(g.settings.topic)}" oninput="updateSpaceRaceSetting('topic',this.value)" placeholder="VD: Toán - Phép nhân; Tiếng Việt..." class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-cyan-400"></label>
-                                    <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Số câu đúng để về đích</span><input type="number" min="1" max="20" value="${g.settings.questionsPerPlayer}" oninput="updateSpaceRaceSetting('questionsPerPlayer',this.value,'number')" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-cyan-400"></label>
+                                    <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Số câu thi đấu</span><input type="number" min="1" max="20" value="${g.settings.questionsPerPlayer}" oninput="updateSpaceRaceSetting('questionsPerPlayer',this.value,'number')" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-cyan-400"></label>
                                     <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Đối tượng thi đấu</span><select onchange="updateSpaceRaceSetting('playerMode',this.value)" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white font-bold outline-none focus:border-cyan-400"><option value="student" ${!isTeam?'selected':''}>Học sinh</option><option value="team" ${isTeam?'selected':''}>Đội / Tổ</option></select></label>
                                 </div>
                                 <div class="flex flex-wrap gap-4 pt-2 text-sm font-bold text-slate-600">
@@ -2684,7 +2843,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                             </div>
 
                             <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col min-h-[260px]">
-                                <div class="flex items-center justify-between gap-3 mb-3"><div><div class="font-black text-slate-800">Chọn ${isTeam?'đội / tổ':'học sinh'} chơi</div><div class="text-xs text-slate-500 mt-1">Đã chọn ${selectedCount}. Từ 2–4 người: chơi đồng thời; trên 4: tự chuyển sang từng lượt.</div></div><div class="px-3 py-1.5 bg-cyan-50 text-cyan-700 border border-cyan-100 rounded-full text-xs font-black">${selectedCount} đã chọn</div></div>
+                                <div class="flex items-center justify-between gap-3 mb-3"><div><div class="font-black text-slate-800">Chọn ${isTeam?'đội / tổ':'học sinh'} chơi</div><div class="text-xs text-slate-500 mt-1">Đã chọn ${selectedCount}/2. Chọn đúng 2 học sinh hoặc 2 đội để thi đấu đối kháng trên cùng bàn phím.</div></div><div class="px-3 py-1.5 bg-cyan-50 text-cyan-700 border border-cyan-100 rounded-full text-xs font-black">${selectedCount} đã chọn</div></div>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[310px] overflow-y-auto custom-scrollbar pr-1">${contestantCards || '<div class="col-span-full text-center text-slate-400 py-8">Chưa có dữ liệu học sinh/đội.</div>'}</div>
                             </div>
                         </div>
@@ -2704,17 +2863,22 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 </div>`;
         }
 
-        function spaceRacePlayerProgress(player, target) {
-            return Math.max(0, Math.min(100, Math.round((player.correctCount / target) * 100)));
+        function spaceRacePlayerProgress(player, totalQuestions) {
+            const total = Math.max(1, Number(totalQuestions) || 1);
+            return Math.max(0, Math.min(100, Math.round(((player.correctCount || 0) / total) * 100)));
         }
 
         function spaceRaceRenderRanking(p) {
             return spaceRaceRanking(p.players).map((pl, idx) => {
-                const progress = spaceRacePlayerProgress(pl, p.targetCorrect);
+                const progress = spaceRacePlayerProgress(pl, p.totalRounds);
                 const pal = spaceRacePalette(pl.colorIndex);
                 return `<div class="rounded-xl border border-white/10 bg-white/[.07] p-3 flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-black text-slate-950" style="background:${idx===0?'#fde047':idx===1?'#cbd5e1':idx===2?'#fdba74':'#e2e8f0'}">${idx+1}</div>
-                    <div class="min-w-0 flex-1"><div class="font-black text-white truncate">${mfgEsc(pl.name)}</div><div class="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full" style="width:${progress}%;background:${pal.main}"></div></div></div>
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-black text-slate-950" style="background:${idx===0?'#fde047':idx===1?'#cbd5e1':'#e2e8f0'}">${idx+1}</div>
+                    <div class="min-w-0 flex-1">
+                        <div class="font-black text-white truncate">${mfgEsc(pl.name)}</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5">${pl.correctCount}/${p.totalRounds} đúng · ⏱ ${spaceRaceFormatMs(pl.correctResponseMs)}</div>
+                        <div class="mt-1.5 h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full transition-all duration-500" style="width:${progress}%;background:${pal.main}"></div></div>
+                    </div>
                     <div class="font-black text-cyan-100">${progress}%</div>
                 </div>`;
             }).join('');
@@ -2723,47 +2887,139 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         function spaceRaceRenderTrack(p) {
             const finishLeft = 92;
             const ships = p.players.map((pl, idx) => {
-                const progress = spaceRacePlayerProgress(pl, p.targetCorrect);
+                const progress = spaceRacePlayerProgress(pl, p.totalRounds);
                 const x = 4 + progress * .86;
                 const pal = spaceRacePalette(pl.colorIndex);
-                const ship = idx % 2 ? '🛸' : '🚀';
-                return `<div class="sr-lane relative min-h-[48px] border-b border-white/[.06] last:border-b-0">
-                    <div class="absolute top-1/2 -translate-y-1/2 z-20 transition-all duration-700 ease-out ${pl.feedback==='correct'?'sr-boost':''}" style="left:${x}%;filter:drop-shadow(0 0 10px ${pal.glow})">
+                const ship = idx === 0 ? '🚀' : '🛸';
+                return `<div class="sr-lane relative min-h-[70px] border-b border-white/[.07] last:border-b-0">
+                    <div class="absolute inset-x-0 top-1/2 h-[2px] bg-gradient-to-r from-cyan-400/20 via-white/5 to-fuchsia-400/20"></div>
+                    <div class="absolute top-1/2 -translate-y-1/2 z-20 transition-[left] duration-700 ease-out ${pl.feedback==='correct'?'sr-boost':''}" style="left:${x}%;filter:drop-shadow(0 0 12px ${pal.glow})">
                         <div class="relative flex items-center gap-2 -translate-x-1/2">
-                            <div class="sr-flame absolute right-[72%] top-1/2 -translate-y-1/2 w-9 h-2 rounded-full opacity-${pl.feedback==='correct'?'100':'60'}" style="background:linear-gradient(90deg,transparent,${pal.trail},#fff)"></div>
-                            <div class="text-3xl md:text-4xl relative z-10">${ship}</div>
-                            <div class="relative z-10 px-2 py-1 rounded-lg bg-slate-950/80 border border-white/10 text-[10px] md:text-xs font-black whitespace-nowrap text-white">${mfgEsc(pl.name)}</div>
+                            <div class="sr-flame absolute right-[76%] top-1/2 -translate-y-1/2 w-10 h-2.5 rounded-full ${pl.feedback==='correct'?'opacity-100':'opacity-55'}" style="background:linear-gradient(90deg,transparent,${pal.trail},#fff)"></div>
+                            <div class="text-4xl md:text-5xl relative z-10">${ship}</div>
+                            <div class="relative z-10 px-2.5 py-1.5 rounded-lg bg-slate-950/85 border border-white/10 text-[10px] md:text-xs font-black whitespace-nowrap text-white shadow-lg">${mfgEsc(pl.name)} · ${progress}%</div>
                         </div>
                     </div>
                 </div>`;
             }).join('');
-            return `<div class="relative rounded-2xl border border-violet-400/30 bg-[#020617]/80 overflow-hidden min-h-[200px]">
+
+            return `<div class="relative rounded-2xl border border-violet-400/30 bg-[#020617]/80 overflow-hidden min-h-[190px]">
                 <div class="absolute inset-0 sr-stars opacity-70"></div>
-                <div class="absolute left-[3%] top-0 bottom-0 w-[2px] bg-cyan-300/50"></div><div class="absolute left-[3%] top-2 -translate-x-1/2 text-[9px] font-black tracking-wider text-cyan-100 bg-slate-950/80 px-2 py-1 rounded">XUẤT PHÁT</div>
-                <div class="absolute top-0 bottom-0 z-10" style="left:${finishLeft}%"><div class="w-3 h-full opacity-90" style="background:repeating-linear-gradient(0deg,#fff 0 8px,#0f172a 8px 16px)"></div><div class="absolute top-2 -left-5 text-xs font-black text-white bg-slate-950/80 px-2 py-1 rounded">ĐÍCH</div></div>
-                <div class="absolute right-[18%] top-4 w-16 h-16 rounded-full bg-gradient-to-br from-fuchsia-500 to-purple-900 opacity-60 shadow-[0_0_35px_rgba(217,70,239,.45)]"></div>
-                <div class="absolute right-[40%] bottom-4 w-9 h-9 rounded-full bg-gradient-to-br from-amber-300 to-orange-700 opacity-45"></div>
-                <div class="relative z-[5] py-3 max-h-[38vh] overflow-y-auto custom-scrollbar">${ships}</div>
+                <div class="absolute left-[3%] top-0 bottom-0 w-[2px] bg-cyan-300/55"></div>
+                <div class="absolute left-[3%] top-2 -translate-x-1/2 text-[9px] font-black tracking-wider text-cyan-100 bg-slate-950/85 px-2 py-1 rounded">XUẤT PHÁT</div>
+                <div class="absolute top-0 bottom-0 z-10" style="left:${finishLeft}%">
+                    <div class="w-3 h-full opacity-95" style="background:repeating-linear-gradient(0deg,#fff 0 8px,#0f172a 8px 16px)"></div>
+                    <div class="absolute top-2 -left-5 text-xs font-black text-white bg-slate-950/85 px-2 py-1 rounded">🏁 ĐÍCH</div>
+                </div>
+                <div class="absolute right-[18%] top-4 w-14 h-14 rounded-full bg-gradient-to-br from-fuchsia-500 to-purple-900 opacity-55 shadow-[0_0_35px_rgba(217,70,239,.45)]"></div>
+                <div class="absolute right-[42%] bottom-4 w-9 h-9 rounded-full bg-gradient-to-br from-amber-300 to-orange-700 opacity-45"></div>
+                <div class="relative z-[5] py-3">${ships}</div>
             </div>`;
         }
 
-        function spaceRaceQuestionPanel(player, p, active = true) {
-            const q = player.currentQuestion || {text:'Đang chuẩn bị câu hỏi...',options:[]};
-            const progress = spaceRacePlayerProgress(player, p.targetCorrect);
+        function spaceRaceAnswerStateClass(player, option, optionIndex) {
+            const selected = Number(player.selectedOption) === Number(optionIndex);
+            if (selected && player.feedback === 'correct') return 'border-emerald-300 bg-emerald-500/25 ring-2 ring-emerald-300/60 sr-key-hit';
+            if (selected && player.feedback === 'wrong') return 'border-red-300 bg-red-500/25 ring-2 ring-red-300/60 sr-key-hit';
+            if (player.locked && !selected) return 'border-white/10 bg-white/[.035] opacity-55';
+            return 'border-cyan-400/25 bg-[#0b2934]';
+        }
+
+        function spaceRaceQuestionPanel(player, p) {
+            const q = p.currentQuestion || {text:'Đang chuẩn bị câu hỏi...', options:[]};
+            const playerIndex = Math.max(0, p.players.findIndex(x => x.id === player.id));
+            const keys = SPACE_RACE_KEYSETS[playerIndex] || SPACE_RACE_KEYSETS[0];
+            const progress = spaceRacePlayerProgress(player, p.totalRounds);
             const pal = spaceRacePalette(player.colorIndex);
-            const feedback = player.feedback === 'correct' ? 'ring-4 ring-emerald-400/70' : player.feedback === 'wrong' ? 'ring-4 ring-red-400/70' : '';
-            return `<div class="sr-question-panel ${feedback} rounded-2xl border border-white/10 bg-[#071526]/95 overflow-hidden shadow-xl flex flex-col min-h-[300px] ${!active?'opacity-55':''}">
+            const feedbackRing = player.feedback === 'correct'
+                ? 'ring-4 ring-emerald-400/70'
+                : player.feedback === 'wrong'
+                    ? 'ring-4 ring-red-400/70'
+                    : player.feedback === 'timeout'
+                        ? 'ring-4 ring-amber-300/50'
+                        : '';
+            const status = player.feedback === 'correct'
+                ? '✅ ĐÚNG'
+                : player.feedback === 'wrong'
+                    ? '❌ SAI'
+                    : player.feedback === 'timeout'
+                        ? '⏱ HẾT GIỜ'
+                        : player.locked
+                            ? 'ĐÃ CHỌN'
+                            : 'SẴN SÀNG';
+
+            return `<div class="sr-question-panel ${feedbackRing} rounded-2xl border border-white/10 bg-[#071526]/96 overflow-hidden shadow-xl flex flex-col min-h-[350px]">
                 <div class="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-3" style="background:linear-gradient(90deg,${pal.main}22,transparent)">
-                    <div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl flex items-center justify-center text-xl" style="background:${pal.main}25;border:1px solid ${pal.main}55">🚀</div><div class="min-w-0"><div class="font-black text-white truncate">${mfgEsc(player.name)}</div><div class="text-[11px] text-slate-400">${player.correctCount}/${p.targetCorrect} câu đúng · ${progress}%</div></div></div>
-                    ${p.turnMode ? `<span class="px-3 py-1 rounded-full text-xs font-black ${active?'bg-cyan-400 text-slate-950':'bg-white/10 text-slate-400'}">${active?'ĐẾN LƯỢT':'CHỜ LƯỢT'}</span>` : ''}
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-2xl" style="background:${pal.main}25;border:1px solid ${pal.main}55">${playerIndex===0?'🚀':'🛸'}</div>
+                        <div class="min-w-0">
+                            <div class="font-black text-white truncate">${mfgEsc(player.name)}</div>
+                            <div class="text-[11px] text-slate-400">${player.correctCount}/${p.totalRounds} đúng · ${progress}% · ⏱ ${spaceRaceFormatMs(player.correctResponseMs)}</div>
+                        </div>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <div class="px-3 py-1 rounded-full text-[11px] font-black ${player.locked?'bg-white/10 text-slate-300':'bg-cyan-400 text-slate-950'}">${status}</div>
+                        <div class="mt-1 text-[10px] text-slate-400 font-bold tracking-wide">PHÍM: ${keys.join(' · ')}</div>
+                    </div>
                 </div>
+
                 <div class="px-4 md:px-5 py-4 bg-gradient-to-r from-cyan-500/20 via-blue-500/10 to-violet-500/20 border-b border-cyan-400/20">
-                    <div class="sr-question-text font-black text-white leading-[1.18] text-center">${mfgEsc(q.text)}</div>
+                    <div class="sr-question-text font-black text-white leading-[1.15] text-center">${mfgEsc(q.text)}</div>
                 </div>
-                <div class="p-3 md:p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
-                    ${(q.options || []).map((o, oi) => `<button ${active && !player.locked ? '' : 'disabled'} onclick="submitSpaceRaceAnswer('${player.id}',${oi})" class="sr-answer group rounded-xl border border-cyan-400/25 bg-[#0b2934] hover:bg-[#0f3b48] disabled:cursor-not-allowed disabled:opacity-70 p-3 md:p-4 min-h-[78px] flex items-center gap-3 text-left transition-all hover:-translate-y-0.5 hover:border-cyan-300/60">
-                        <span class="w-9 h-9 rounded-lg bg-slate-950/70 border border-amber-400/30 text-amber-300 font-black flex items-center justify-center flex-shrink-0">${String.fromCharCode(65+oi)}</span><span class="sr-answer-text font-bold text-white leading-tight">${mfgEsc(o.text)}</span>
-                    </button>`).join('')}
+
+                <div class="p-3 md:p-4 grid grid-cols-2 gap-3 flex-1">
+                    ${(q.options || []).map((o, oi) => {
+                        const cls = spaceRaceAnswerStateClass(player, o, oi);
+                        return `<div id="sr-answer-${playerIndex}-${oi}" class="sr-answer ${cls} rounded-xl border p-3 md:p-4 min-h-[96px] flex items-center gap-3 text-left transition-all duration-150">
+                            <div class="flex flex-col items-center gap-1 flex-shrink-0">
+                                <span class="sr-key-badge w-11 h-11 rounded-xl bg-slate-950/80 border-2 border-amber-300/55 text-amber-200 font-black text-lg flex items-center justify-center shadow-[0_0_15px_rgba(253,224,71,.12)]">${keys[oi]}</span>
+                                <span class="text-[10px] font-black text-slate-500">ĐÁP ÁN ${String.fromCharCode(65+oi)}</span>
+                            </div>
+                            <span class="sr-answer-text font-black text-white leading-tight flex-1">${mfgEsc(o.text)}</span>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+        }
+
+        function spaceRaceRenderFinishOverlay(p) {
+            if (p.status !== 'finished') return '';
+            const standings = spaceRaceRanking(p.players);
+            const winner = p.winnerId ? p.players.find(x => x.id === p.winnerId) : null;
+            const headline = p.isDraw ? '🤝 HÒA!' : `🏆 ${mfgEsc(winner?.name || standings[0]?.name || 'Người chơi')} CHIẾN THẮNG!`;
+            const subline = p.isDraw
+                ? 'Hai bên bằng số câu đúng và tổng thời gian trả lời đúng.'
+                : 'Xếp hạng theo số câu đúng; nếu bằng điểm, tổng thời gian trả lời đúng nhanh hơn sẽ thắng.';
+
+            const rows = standings.map((pl, idx) => {
+                const acc = p.totalRounds ? Math.round((pl.correctCount / p.totalRounds) * 100) : 0;
+                const rankMark = p.isDraw ? '🤝' : (idx===0?'🥇':'🥈');
+                return `<div class="grid grid-cols-[48px_1fr_auto] md:grid-cols-[48px_1fr_auto_auto_auto] gap-3 items-center rounded-xl ${(!p.isDraw && idx===0)?'bg-amber-50 border-amber-200':'bg-slate-50 border-slate-200'} border p-3 text-left">
+                    <div class="text-2xl text-center">${rankMark}</div>
+                    <div class="font-black text-slate-800 truncate">${mfgEsc(pl.name)}</div>
+                    <div class="text-sm font-black text-emerald-600">${pl.correctCount}/${p.totalRounds} đúng</div>
+                    <div class="hidden md:block text-sm font-black text-indigo-600">${acc}%</div>
+                    <div class="hidden md:block text-sm font-black text-slate-600">⏱ đúng ${spaceRaceFormatMs(pl.correctResponseMs)}</div>
+                    <div class="col-span-3 md:col-span-5 pl-[60px] text-[11px] text-slate-500">Tổng thời gian bấm phím: ${spaceRaceFormatMs(pl.totalResponseMs)}</div>
+                </div>`;
+            }).join('');
+
+            const sparks = Array.from({length:18}, (_,i) => `<span class="sr-spark" style="--i:${i};--x:${(i*37)%100}%;--d:${(i%6)*.12}s">✨</span>`).join('');
+            return `<div class="absolute inset-0 z-[80] bg-slate-950/82 backdrop-blur-md flex items-center justify-center p-4 md:p-6 overflow-hidden">
+                <div class="absolute inset-0 pointer-events-none">${sparks}</div>
+                <div class="relative z-10 bg-white rounded-[2rem] w-full max-w-3xl shadow-2xl overflow-hidden border-4 border-cyan-300">
+                    <div class="bg-gradient-to-r from-indigo-700 via-violet-700 to-cyan-600 text-white p-6 text-center relative overflow-hidden">
+                        <div class="absolute -left-6 -top-6 text-8xl opacity-20">🚀</div><div class="absolute -right-6 -bottom-8 text-8xl opacity-20">🛸</div>
+                        <div class="text-6xl mb-2">🎆🚀🏁</div>
+                        <div class="text-xs uppercase tracking-[.22em] font-black text-cyan-100">Kết thúc đường đua</div>
+                        <div class="text-3xl md:text-4xl font-black mt-2">${headline}</div>
+                        <div class="text-sm text-cyan-100 mt-2">${subline}</div>
+                    </div>
+                    <div class="p-5 md:p-6 space-y-2 max-h-[48vh] overflow-y-auto custom-scrollbar">${rows}</div>
+                    <div class="p-5 border-t bg-slate-50 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button onclick="startSpaceRaceGame()" class="py-3.5 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-black"><i class="ph-bold ph-arrow-clockwise mr-1"></i> Chơi lại</button>
+                        <button onclick="leaveSpaceRaceToGameMenu()" class="py-3.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-black"><i class="ph-fill ph-game-controller mr-1"></i> Về Góc trò chơi</button>
+                    </div>
                 </div>
             </div>`;
         }
@@ -2771,48 +3027,50 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         function renderSpaceRacePlay(container, g) {
             const p = g.play;
             if (!p) { g.view = 'config'; return renderSpaceRaceConfig(container, g); }
-            const ranking = spaceRaceRanking(p.players);
-            const leadProgress = ranking.length ? spaceRacePlayerProgress(ranking[0], p.targetCorrect) : 0;
-            let questionArea = '';
-            if (p.turnMode) {
-                const active = p.players[p.activeTurnIndex] || p.players[0];
-                questionArea = `<div class="max-w-5xl mx-auto w-full">${spaceRaceQuestionPanel(active, p, true)}</div>`;
-            } else {
-                questionArea = `<div class="grid grid-cols-1 ${p.players.length>1?'lg:grid-cols-2':''} gap-3 md:gap-4">${p.players.map(pl => spaceRaceQuestionPanel(pl,p,true)).join('')}</div>`;
-            }
 
-            let finishOverlay = '';
-            if (p.status === 'finished') {
-                const standings = spaceRaceRanking(p.players);
-                const rows = standings.map((pl, idx) => {
-                    const acc = pl.attempts ? Math.round(pl.correctCount / pl.attempts * 100) : 0;
-                    return `<div class="grid grid-cols-[44px_1fr_auto_auto] gap-3 items-center rounded-xl ${idx===0?'bg-amber-50 border-amber-200':'bg-slate-50 border-slate-200'} border p-3 text-left"><div class="text-2xl text-center">${idx===0?'🥇':idx===1?'🥈':idx===2?'🥉':idx+1}</div><div class="font-black text-slate-800 truncate">${mfgEsc(pl.name)}</div><div class="text-sm font-black text-emerald-600">${pl.correctCount} đúng</div><div class="text-sm font-black text-indigo-600">${acc}%</div></div>`;
-                }).join('');
-                finishOverlay = `<div class="absolute inset-0 z-[80] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 md:p-6"><div class="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl overflow-hidden border-4 border-cyan-300"><div class="bg-gradient-to-r from-indigo-700 via-violet-700 to-cyan-600 text-white p-6 text-center"><div class="text-6xl mb-2">🏆🚀</div><div class="text-xs uppercase tracking-[.22em] font-black text-cyan-100">Hoàn thành hành trình</div><div class="text-3xl font-black mt-2">${mfgEsc(standings[0]?.name || 'Người chơi')} chiến thắng!</div></div><div class="p-5 md:p-6 space-y-2 max-h-[45vh] overflow-y-auto custom-scrollbar">${rows}</div><div class="p-5 border-t bg-slate-50 grid grid-cols-1 sm:grid-cols-2 gap-3"><button onclick="startSpaceRaceGame()" class="py-3.5 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-black"><i class="ph-bold ph-arrow-clockwise mr-1"></i> Chơi lại</button><button onclick="leaveSpaceRaceToGameMenu()" class="py-3.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-black"><i class="ph-fill ph-game-controller mr-1"></i> Về Góc trò chơi</button></div></div></div>`;
-            }
+            const ranking = spaceRaceRanking(p.players);
+            const leadProgress = ranking.length ? spaceRacePlayerProgress(ranking[0], p.totalRounds) : 0;
+            const currentNo = Math.min(p.totalRounds, (p.roundIndex || 0) + 1);
+            const answerCount = p.players.filter(pl => pl.locked).length;
+            const questionArea = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">${p.players.map(pl => spaceRaceQuestionPanel(pl, p)).join('')}</div>`;
+            const finishOverlay = spaceRaceRenderFinishOverlay(p);
+            const secondsLeft = p.status === 'playing' ? Math.ceil(Math.max(0, (p.questionEndsAt || 0) - Date.now()) / 1000) : 0;
 
             container.innerHTML = `
                 <style>
                     @keyframes srStarMove{from{background-position:0 0,0 0}to{background-position:-160px 70px,110px -60px}}
-                    @keyframes srBoost{0%{transform:translateX(-50%) scale(1)}35%{transform:translateX(-42%) scale(1.22)}100%{transform:translateX(-50%) scale(1)}}
-                    @keyframes srFlame{0%,100%{transform:scaleX(.75);opacity:.55}50%{transform:scaleX(1.25);opacity:1}}
+                    @keyframes srBoost{0%{transform:translateY(-50%) scale(1)}35%{transform:translateY(-50%) scale(1.23) translateX(8px)}100%{transform:translateY(-50%) scale(1)}}
+                    @keyframes srFlame{0%,100%{transform:translateY(-50%) scaleX(.75);opacity:.55}50%{transform:translateY(-50%) scaleX(1.3);opacity:1}}
+                    @keyframes srKeyHit{0%{transform:scale(1)}35%{transform:scale(.96)}70%{transform:scale(1.025)}100%{transform:scale(1)}}
+                    @keyframes srSpark{0%{transform:translateY(30px) scale(.3) rotate(0);opacity:0}20%{opacity:1}100%{transform:translateY(-70vh) scale(1.3) rotate(260deg);opacity:0}}
                     .sr-stars{background-image:radial-gradient(#fff 1px,transparent 1px),radial-gradient(#67e8f9 1px,transparent 1px);background-size:44px 44px,79px 79px;animation:srStarMove 18s linear infinite}
-                    .sr-boost>div{animation:srBoost .65s ease-out}.sr-flame{animation:srFlame .45s ease-in-out infinite;transform-origin:right center}
-                    .sr-question-text{font-size:clamp(24px,2.1vw,32px)}.sr-answer-text{font-size:clamp(17px,1.35vw,22px)}
-                    @media(max-width:768px){.sr-question-text{font-size:clamp(21px,5.5vw,28px)}.sr-answer-text{font-size:clamp(16px,4.2vw,20px)}}
+                    .sr-boost{animation:srBoost .65s ease-out}.sr-flame{animation:srFlame .45s ease-in-out infinite;transform-origin:right center}.sr-key-hit{animation:srKeyHit .28s ease-out}
+                    .sr-question-text{font-size:clamp(26px,2.25vw,34px)}.sr-answer-text{font-size:clamp(18px,1.5vw,23px)}
+                    .sr-spark{position:absolute;left:var(--x);bottom:-20px;font-size:clamp(18px,2vw,28px);animation:srSpark 2.6s ease-out infinite;animation-delay:var(--d)}
+                    @media(max-width:768px){.sr-question-text{font-size:clamp(21px,5.7vw,29px)}.sr-answer-text{font-size:clamp(16px,4.2vw,20px)}.sr-key-badge{width:38px;height:38px}}
                 </style>
                 <div id="space-race-game-container" class="interactive-game-play-shell w-full h-full min-h-[680px] relative overflow-y-auto custom-scrollbar bg-gradient-to-b from-[#07142d] via-[#081d3c] to-[#07182e] text-white select-none">
                     <div class="absolute inset-0 sr-stars opacity-20 pointer-events-none"></div>
                     <div class="relative z-10 min-h-full flex flex-col">
                         <div class="sticky top-0 z-50 min-h-14 px-3 md:px-4 py-2 bg-[#0b1b38]/95 backdrop-blur-xl border-b border-cyan-400/20 flex items-center justify-between gap-2 shadow-xl">
                             <button onclick="backToSpaceRaceConfig()" class="h-9 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 font-black text-xs md:text-sm flex items-center gap-1"><i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">Về sảnh</span></button>
-                            <div class="text-center min-w-0 flex-1"><div class="font-black text-sm md:text-lg tracking-wide truncate">🚀 ${mfgEsc(g.settings.title || 'PHI THUYỀN VŨ TRỤ')}</div><div class="text-[10px] md:text-xs text-cyan-200 font-bold">Mục tiêu ${p.targetCorrect} câu đúng · Lượt trả lời ${p.totalAttempts + 1}${p.turnMode ? ` · Đến lượt ${mfgEsc(p.players[p.activeTurnIndex]?.name || '')}` : ''}</div></div>
-                            <div class="flex items-center gap-1.5"><span class="hidden md:inline-flex h-9 px-3 rounded-xl bg-white/10 border border-white/10 items-center font-black text-xs">Dẫn đầu ${leadProgress}%</span><button onclick="toggleSpaceRaceSound()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10" title="Bật/tắt âm thanh"><i class="ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}"></i></button><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10" title="Toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-out"></i></button></div>
+                            <div class="text-center min-w-0 flex-1">
+                                <div class="font-black text-sm md:text-lg tracking-wide truncate">🚀 ${mfgEsc(g.settings.title || 'PHI THUYỀN VŨ TRỤ')}</div>
+                                <div class="text-[10px] md:text-xs text-cyan-200 font-bold">Câu ${currentNo}/${p.totalRounds} · ${answerCount}/2 đã trả lời · Dẫn đầu ${leadProgress}% · ⌨ Q W A S / O P K L</div>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span id="sr-round-timer" class="inline-flex h-9 min-w-[48px] px-2 rounded-xl bg-white/10 border border-white/10 items-center justify-center font-black text-xs">${secondsLeft}s</span>
+                                <button onclick="toggleSpaceRaceSound()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10" title="Bật/tắt âm thanh"><i class="ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}"></i></button>
+                                <button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10" title="Toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-out"></i></button>
+                            </div>
                         </div>
 
-                        <div class="p-2 md:p-3 grid grid-cols-1 xl:grid-cols-[1fr_260px] gap-3">
+                        <div class="p-2 md:p-3 grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-3">
                             <div>${spaceRaceRenderTrack(p)}</div>
-                            <aside class="rounded-2xl border border-white/10 bg-white/[.06] backdrop-blur-sm p-3 xl:max-h-[38vh] overflow-y-auto custom-scrollbar"><div class="font-black text-amber-300 mb-2 flex items-center gap-2"><i class="ph-fill ph-trophy"></i> Bảng xếp hạng realtime</div><div class="space-y-2">${spaceRaceRenderRanking(p)}</div></aside>
+                            <aside class="rounded-2xl border border-white/10 bg-white/[.06] backdrop-blur-sm p-3 overflow-y-auto custom-scrollbar">
+                                <div class="font-black text-amber-300 mb-2 flex items-center gap-2"><i class="ph-fill ph-trophy"></i> Bảng xếp hạng realtime</div>
+                                <div class="space-y-2">${spaceRaceRenderRanking(p)}</div>
+                            </aside>
                         </div>
 
                         <div class="px-2 md:px-3 pb-3 flex-1">${questionArea}</div>
@@ -2820,14 +3078,20 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                     ${finishOverlay}
                 </div>`;
             setTimeout(() => window.updateInteractiveGameFullscreenButtons && window.updateInteractiveGameFullscreenButtons(), 0);
+            setTimeout(spaceRaceUpdateClockUI, 0);
         }
 
         window.initSpaceRaceGame = function() {
             const container = document.getElementById('game-mount-point');
             if (!container) return;
             const g = ensureSpaceRaceState();
-            if (g.view === 'play') renderSpaceRacePlay(container, g);
-            else renderSpaceRaceConfig(container, g);
+            if (g.view === 'play') {
+                if (!window.spaceRaceKeyListener && g.play?.status === 'playing') spaceRaceAttachKeyboard();
+                renderSpaceRacePlay(container, g);
+            } else {
+                spaceRaceDetachKeyboard();
+                renderSpaceRaceConfig(container, g);
+            }
         };
 
         // =============================================================
