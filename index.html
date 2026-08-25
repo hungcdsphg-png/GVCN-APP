@@ -2190,6 +2190,63 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
 
         window.activeGameLoop = null; // Biến lưu vòng lặp của game canvas (nếu có)
 
+
+        // =============================================================
+        // NHẠC NỀN DÙNG CHUNG CHO GÓC TRÒ CHƠI (TRỪ QUÉT THẺ QR)
+        // Phát từ lúc bấm BẮT ĐẦU và lặp liên tục cho tới khi game kết thúc/thoát.
+        // File âm thanh nằm tại: /assets/game-background.mp3
+        // =============================================================
+        const GAME_BACKGROUND_MUSIC_SRC = './assets/game-background.mp3';
+        window.gameBackgroundMusicRuntime = window.gameBackgroundMusicRuntime || {
+            audio: null,
+            gameId: null
+        };
+
+        window.getGameBackgroundMusic = function() {
+            const rt = window.gameBackgroundMusicRuntime;
+            if (!rt.audio) {
+                const audio = new Audio(GAME_BACKGROUND_MUSIC_SRC);
+                audio.loop = true;
+                audio.preload = 'auto';
+                audio.volume = 0.32;
+                audio.setAttribute('playsinline', '');
+                rt.audio = audio;
+            }
+            return rt.audio;
+        };
+
+        window.startGameBackgroundMusic = function(gameId = state.activeGame) {
+            // Quét Thẻ QR tuyệt đối không dùng nhạc nền này.
+            if (!gameId || gameId === 'quet-the-qr') {
+                window.stopGameBackgroundMusic(true);
+                return;
+            }
+            const rt = window.gameBackgroundMusicRuntime;
+            const audio = window.getGameBackgroundMusic();
+            rt.gameId = gameId;
+            try {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.loop = true;
+                const playPromise = audio.play();
+                if (playPromise && typeof playPromise.catch === 'function') {
+                    playPromise.catch(err => console.warn('Trình duyệt chưa cho phép phát nhạc nền:', err));
+                }
+            } catch (err) {
+                console.warn('Không thể phát nhạc nền trò chơi:', err);
+            }
+        };
+
+        window.stopGameBackgroundMusic = function(reset = true) {
+            const rt = window.gameBackgroundMusicRuntime;
+            if (!rt || !rt.audio) return;
+            try {
+                rt.audio.pause();
+                if (reset) rt.audio.currentTime = 0;
+            } catch (e) {}
+            rt.gameId = null;
+        };
+
         // =============================================================
         // TOÀN MÀN HÌNH DÙNG CHUNG CHO CÁC TRÒ CHƠI TƯƠNG TÁC
         // Ưu tiên Fullscreen API; nếu trình duyệt chặn thì dùng fixed-fullscreen.
@@ -2261,6 +2318,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
 
         window.cleanupCurrentGame = function(nextGameId = null) {
             const current = state.activeGame;
+            if (current && current !== 'quet-the-qr' && current !== nextGameId && window.stopGameBackgroundMusic) window.stopGameBackgroundMusic(true);
             if (current === 'ngon-tay-than-ky' && current !== nextGameId && window.cleanupMagicFingerGame) window.cleanupMagicFingerGame(true);
             if (current === 'quizz-nghieng-dau' && current !== nextGameId && window.cleanupHeadTiltGame) window.cleanupHeadTiltGame(true);
             if (current === 'quet-the-qr' && current !== nextGameId && window.cleanupQRQuizGame) window.cleanupQRQuizGame(true);
@@ -2428,6 +2486,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         }
 
         window.cleanupSpaceRaceGame = function(exitFullscreen = false) {
+            window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
             spaceRaceClearTimers();
             spaceRaceUnbindKeyboard();
             if (exitFullscreen && window.isInteractiveGameFullscreen && window.isInteractiveGameFullscreen()) window.exitInteractiveGameFullscreen();
@@ -2645,6 +2704,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             p.players.forEach(pl => { pl.locked = true; pl.progress = spaceRacePlayerProgress(pl, p.targetCorrect); });
             spaceRaceClearTimers();
             spaceRaceUnbindKeyboard();
+            window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
             spaceRaceSound('win');
             saveData();
             window.initSpaceRaceGame();
@@ -2655,6 +2715,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const contestants = spaceRaceContestants();
             if (contestants.length !== 2) return showToast('Hãy chọn đúng 2 học sinh/đội để bắt đầu!', 'error');
             if (!g.questions.length) return showToast('Bộ câu hỏi đang trống. Hãy chọn câu từ Thư viện hoặc tạo bằng AI!', 'error');
+            window.startGameBackgroundMusic && window.startGameBackgroundMusic('space-race');
             const target = Math.max(1, Math.min(20, Number(g.settings.questionsPerPlayer) || 5));
             spaceRaceClearTimers();
             spaceRaceUnbindKeyboard();
@@ -2762,6 +2823,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         };
 
         window.backToSpaceRaceConfig = function() {
+            window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
             const g = ensureSpaceRaceState();
             spaceRaceClearTimers();
             spaceRaceUnbindKeyboard();
@@ -2773,6 +2835,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         };
 
         window.leaveSpaceRaceToGameMenu = function() {
+            window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
             spaceRaceClearTimers();
             spaceRaceUnbindKeyboard();
             if (window.isInteractiveGameFullscreen && window.isInteractiveGameFullscreen()) window.exitInteractiveGameFullscreen();
@@ -3295,6 +3358,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const g = ensureMagicFingerState();
             const validQuestions = g.questions.filter(q => q.text?.trim() && q.options?.length === 4 && q.options.some(o => o.isCorrect));
             if (!validQuestions.length) return showToast('Hãy tạo ít nhất 1 câu hỏi hợp lệ!', 'error');
+            window.startGameBackgroundMusic && window.startGameBackgroundMusic('ngon-tay-than-ky');
 
             const timeLimit = Math.max(10, Number(g.settings.timeLimit) || 90);
             const starsToWin = Math.max(1, Number(g.settings.starsToWin) || 6);
@@ -3352,6 +3416,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 window.magicFingerRuntime.timerInterval = null;
             }
             window.stopMagicFingerCamera(true);
+            window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
             magicFingerSound('win');
             window.initMagicFingerGame();
         };
@@ -3630,6 +3695,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         };
 
         window.cleanupMagicFingerGame = function(stopTimer = true) {
+            window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
             window.stopMagicFingerCamera(true);
             if (stopTimer && window.magicFingerRuntime.timerInterval) {
                 clearInterval(window.magicFingerRuntime.timerInterval);
@@ -3962,6 +4028,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         window.startHeadTiltGame = function(){
             const g=ensureHeadTiltState(); const valid=g.questions.filter(q=>q.text?.trim()&&q.options?.length===4&&q.options.some(o=>o.isCorrect));
             if(!valid.length)return showToast('Hãy tạo ít nhất 1 câu hỏi hợp lệ!','error');
+            window.startGameBackgroundMusic&&window.startGameBackgroundMusic('quizz-nghieng-dau');
             g.view='play';g.play={status:'playing',timer:Math.max(10,Number(g.settings.timeLimit)||90),score:0,questionIndex:0,questions:g.settings.questionOrder==='random'?magicFingerShuffle(JSON.parse(JSON.stringify(valid))):JSON.parse(JSON.stringify(valid)),options:[],locked:false,message:''};
             resetHeadTiltMotionState();
             prepareHeadTiltRound(); saveData(); window.initHeadTiltGame(); window.enterInteractiveGameFullscreen();
@@ -3969,7 +4036,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if(g.settings.cameraEnabled)setTimeout(()=>window.startHeadTiltCamera(),120);
         };
         window.updateHeadTiltTimer=function(){const g=ensureHeadTiltState(),p=g.play;if(!p||p.status!=='playing')return;p.timer=Math.max(0,p.timer-1);const e=document.getElementById('ht-timer');if(e)e.textContent=`${Math.floor(p.timer/60)}:${String(p.timer%60).padStart(2,'0')}`;if(p.timer<=0)window.finishHeadTiltGame();};
-        window.finishHeadTiltGame=function(){const g=ensureHeadTiltState(),p=g.play;if(!p||p.status==='finished')return;p.status='finished';if(window.headTiltRuntime.timerInterval)clearInterval(window.headTiltRuntime.timerInterval);window.headTiltRuntime.timerInterval=null;window.stopHeadTiltCamera(true);headTiltSound('win');window.initHeadTiltGame();};
+        window.finishHeadTiltGame=function(){const g=ensureHeadTiltState(),p=g.play;if(!p||p.status==='finished')return;p.status='finished';if(window.headTiltRuntime.timerInterval)clearInterval(window.headTiltRuntime.timerInterval);window.headTiltRuntime.timerInterval=null;window.stopHeadTiltCamera(true);window.stopGameBackgroundMusic&&window.stopGameBackgroundMusic(true);headTiltSound('win');window.initHeadTiltGame();};
         window.submitHeadTiltAnswer=function(index,source='click'){
             const g=ensureHeadTiltState(),p=g.play;if(!p||p.status!=='playing'||p.locked)return;const o=p.options[index];if(!o)return;
             p.locked=true;
@@ -4166,7 +4233,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             }catch(e){console.error(e);if(rt.stream)rt.stream.getTracks().forEach(t=>t.stop());rt.stream=null;showToast('Không mở được camera. Bạn vẫn có thể bấm đáp án.','error');}finally{rt.cameraStarting=false;}
         };
         window.stopHeadTiltCamera=function(closeDetector=true){const rt=window.headTiltRuntime;rt.running=false;if(rt.raf)cancelAnimationFrame(rt.raf);rt.raf=null;if(rt.stream)rt.stream.getTracks().forEach(t=>t.stop());rt.stream=null;if(closeDetector&&rt.faceLandmarker){try{rt.faceLandmarker.close();}catch(e){}rt.faceLandmarker=null;}resetHeadTiltMotionState();};
-        window.cleanupHeadTiltGame=function(stopTimer=true){window.stopHeadTiltCamera(true);if(stopTimer&&window.headTiltRuntime.timerInterval){clearInterval(window.headTiltRuntime.timerInterval);window.headTiltRuntime.timerInterval=null;}};
+        window.cleanupHeadTiltGame=function(stopTimer=true){window.stopGameBackgroundMusic&&window.stopGameBackgroundMusic(true);window.stopHeadTiltCamera(true);if(stopTimer&&window.headTiltRuntime.timerInterval){clearInterval(window.headTiltRuntime.timerInterval);window.headTiltRuntime.timerInterval=null;}};
         window.backToHeadTiltConfig=function(){const g=ensureHeadTiltState();window.cleanupHeadTiltGame(true);g.view='config';g.play=null;window.exitInteractiveGameFullscreen();window.initHeadTiltGame();saveData();};
         window.toggleHeadTiltFullscreen=function(){window.toggleInteractiveGameFullscreen();};
 
@@ -6325,6 +6392,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                     team.freezeUntil = Date.now() + (freezeSec * 1000);
                 }
 
+                if (p.status === 'finished') window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
                 window.initKeoCoKien();
             };
 
@@ -6347,6 +6415,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                     p.timer = 0;
                     p.status = 'finished';
                     if (window.keocoInterval) clearInterval(window.keocoInterval);
+                    window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
                     window.initKeoCoKien();
                     return;
                 }
@@ -6530,6 +6599,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             window.startKeoCoGame = () => { 
                 const activeQuestions = kState.questions.filter(q => !q.isDeleted);
                 if (activeQuestions.length === 0) return showToast("Vui lòng thêm hoặc khôi phục ít nhất 1 câu hỏi để bắt đầu!", "error");
+                window.startGameBackgroundMusic && window.startGameBackgroundMusic('keo-co-kien');
                 kState.view = 'play'; 
                 kState.play = {
                     timer: parseInt(kState.settings.timeLimit),
@@ -6570,6 +6640,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             };
 
             window.stopKeoCoGame = () => { 
+                window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
                 if (window.keocoInterval) clearInterval(window.keocoInterval);
                 if (window.keocoKeyListener) document.removeEventListener('keydown', window.keocoKeyListener);
                 
