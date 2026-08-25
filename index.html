@@ -1977,8 +1977,10 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 'ngon-tay-than-ky': 'Ngón Tay Thần Kỳ',
                 'quizz-nghieng-dau': 'Quizz Nghiêng Đầu',
                 'quet-the-qr': 'Quét Thẻ QR',
-                'space-race': '🚀 Phi thuyền vũ trụ'
+                'space-race': '🚀 Phi thuyền vũ trụ',
+                'millionaire': '💎 Ai là triệu phú'
             };
+            const millionaireAiMode = targetGame === 'millionaire';
             const homeroomGrade = inferHomeroomGrade();
             const gradeOptions = [1,2,3,4,5].map(n => `<option ${homeroomGrade === `Lớp ${n}` ? 'selected' : ''}>Lớp ${n}</option>`).join('');
             document.getElementById('modal-container').innerHTML = `
@@ -1989,11 +1991,11 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                             <button onclick="document.getElementById('modal-container').innerHTML=''" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20"><i class="ph-bold ph-x"></i></button>
                         </div>
                         <div class="p-6 space-y-4 bg-slate-50">
-                            <div><label class="block text-xs font-black text-slate-500 mb-1">Môn học / Chủ đề</label><input id="game-ai-topic" placeholder="VD: Toán lớp 3 - Bảng nhân 6; Tiếng Việt - Từ chỉ hoạt động..." class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white font-bold outline-none focus:border-fuchsia-500"></div>
+                            <div><label class="block text-xs font-black text-slate-500 mb-1">Môn học / Chủ đề</label><input id="game-ai-topic" value="${millionaireAiMode ? mfgEsc(ensureMillionaireState().settings.topic || '') : ''}" placeholder="VD: Toán lớp 3 - Bảng nhân 6; Tiếng Việt - Từ chỉ hoạt động..." class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white font-bold outline-none focus:border-fuchsia-500"></div>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div><label class="block text-xs font-black text-slate-500 mb-1">Lớp <span class="text-emerald-600">· tự nhận từ ${mfgEsc(state?.admin?.className || homeroomGrade)}</span></label><select id="game-ai-grade" class="w-full px-3 py-3 rounded-xl border border-slate-300 bg-white font-bold">${gradeOptions}</select></div>
-                                <div><label class="block text-xs font-black text-slate-500 mb-1">Số câu</label><input id="game-ai-count" type="number" min="1" max="20" value="5" class="w-full px-3 py-3 rounded-xl border border-slate-300 bg-white font-bold"></div>
-                                <div><label class="block text-xs font-black text-slate-500 mb-1">Mức độ</label><select id="game-ai-difficulty" class="w-full px-3 py-3 rounded-xl border border-slate-300 bg-white font-bold"><option>Dễ</option><option selected>Vừa</option><option>Khó</option></select></div>
+                                <div><label class="block text-xs font-black text-slate-500 mb-1">Số câu</label><input id="game-ai-count" type="number" min="${millionaireAiMode ? 10 : 1}" max="${millionaireAiMode ? 15 : 20}" value="${millionaireAiMode ? ensureMillionaireState().settings.questionCount : 5}" class="w-full px-3 py-3 rounded-xl border border-slate-300 bg-white font-bold"></div>
+                                <div><label class="block text-xs font-black text-slate-500 mb-1">Mức độ</label>${millionaireAiMode ? `<input id="game-ai-difficulty" value="Tăng dần từ dễ đến khó theo đúng thứ tự; mỗi câu sau khó hơn câu trước" readonly class="w-full px-3 py-3 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 font-bold text-xs">` : `<select id="game-ai-difficulty" class="w-full px-3 py-3 rounded-xl border border-slate-300 bg-white font-bold"><option>Dễ</option><option selected>Vừa</option><option>Khó</option></select>`}</div>
                             </div>
                             <div class="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800 font-semibold flex items-start gap-3">
                                 <div class="w-9 h-9 rounded-xl bg-violet-600 text-white flex items-center justify-center flex-shrink-0"><i class="ph-fill ph-books"></i></div>
@@ -2029,6 +2031,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             else if (targetGame === 'quizz-nghieng-dau') { g = ensureHeadTiltState(); initFn = window.initHeadTiltGame; }
             else if (targetGame === 'quet-the-qr') { g = ensureQRQuizState(); initFn = window.initQRQuizGame; }
             else if (targetGame === 'space-race') { g = ensureSpaceRaceState(); initFn = window.initSpaceRaceGame; }
+            else if (targetGame === 'millionaire') { g = ensureMillionaireState(); initFn = window.initMillionaireGame; }
             if (!g) return;
 
             if (!Array.isArray(g.questionLibrary)) g.questionLibrary = [];
@@ -2073,6 +2076,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if (gameId === 'quizz-nghieng-dau') return ensureHeadTiltState();
             if (gameId === 'quet-the-qr') return ensureQRQuizState();
             if (gameId === 'space-race') return ensureSpaceRaceState();
+            if (gameId === 'millionaire') return ensureMillionaireState();
             return null;
         }
 
@@ -2080,6 +2084,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if (gameId === 'ngon-tay-than-ky') return { name: 'Ngón Tay Thần Kỳ', icon: 'ph-hand-pointing' };
             if (gameId === 'quizz-nghieng-dau') return { name: 'Quizz Nghiêng Đầu', icon: 'ph-smiley-wink' };
             if (gameId === 'space-race') return { name: 'Phi thuyền vũ trụ', icon: 'ph-rocket-launch' };
+            if (gameId === 'millionaire') return { name: 'Ai là triệu phú', icon: 'ph-diamond' };
             return { name: 'Quét Thẻ QR', icon: 'ph-qr-code' };
         }
 
@@ -2088,6 +2093,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             else if (gameId === 'quizz-nghieng-dau' && window.initHeadTiltGame) window.initHeadTiltGame();
             else if (gameId === 'quet-the-qr' && window.initQRQuizGame) window.initQRQuizGame();
             else if (gameId === 'space-race' && window.initSpaceRaceGame) window.initSpaceRaceGame();
+            else if (gameId === 'millionaire' && window.initMillionaireGame) window.initMillionaireGame();
         }
 
         window.openGameQuestionLibrary = function(gameId) {
@@ -2323,6 +2329,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if (current === 'quizz-nghieng-dau' && current !== nextGameId && window.cleanupHeadTiltGame) window.cleanupHeadTiltGame(true);
             if (current === 'quet-the-qr' && current !== nextGameId && window.cleanupQRQuizGame) window.cleanupQRQuizGame(true);
             if (current === 'space-race' && current !== nextGameId && window.cleanupSpaceRaceGame) window.cleanupSpaceRaceGame(true);
+            if (current === 'millionaire' && current !== nextGameId && window.cleanupMillionaireGame) window.cleanupMillionaireGame(true);
         };
 
         window.switchGame = function(gameId) {
@@ -2342,6 +2349,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 else if (gameId === 'quizz-nghieng-dau') window.initHeadTiltGame();
                 else if (gameId === 'quet-the-qr') window.initQRQuizGame();
                 else if (gameId === 'space-race') window.initSpaceRaceGame();
+                else if (gameId === 'millionaire') window.initMillionaireGame();
             }, 50);
         };
 
@@ -3152,6 +3160,464 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             else renderSpaceRaceConfig(container, g);
         };
 
+
+        // =============================================================
+        // 💎 AI LÀ TRIỆU PHÚ - GAMESHOW KIẾN THỨC 1 NGƯỜI CHƠI
+        // - Tái sử dụng Gemini API + Thư viện câu hỏi dùng chung.
+        // - 10–15 câu, độ khó tăng dần theo thứ tự bộ câu hỏi.
+        // - 3 trợ giúp: 50/50, Hỏi bạn bè, Hỏi khán giả (không bảo đảm đúng).
+        // - Không sử dụng logo/nhạc/tài sản của chương trình truyền hình.
+        // =============================================================
+        window.millionaireTimers = window.millionaireTimers || [];
+        window.millionaireAudioContext = window.millionaireAudioContext || null;
+
+        const MILLIONAIRE_REWARD_MASTER = [100,200,300,500,1000,2000,3000,5000,7500,10000,15000,20000,30000,50000,100000];
+
+        function getMillionaireRewardSteps(count) {
+            count = Math.max(10, Math.min(15, Number(count) || 10));
+            if (count === 15) return [...MILLIONAIRE_REWARD_MASTER];
+            const picked = [];
+            for (let i = 0; i < count; i++) {
+                const idx = Math.round(i * (MILLIONAIRE_REWARD_MASTER.length - 1) / (count - 1));
+                picked.push(MILLIONAIRE_REWARD_MASTER[idx]);
+            }
+            return picked;
+        }
+
+        function millionaireDefaultQuestions() {
+            return [
+                { id:'mlq1', text:'Số nào lớn nhất trong các số sau?', options:[{text:'18',isCorrect:false},{text:'81',isCorrect:true},{text:'28',isCorrect:false},{text:'38',isCorrect:false}] },
+                { id:'mlq2', text:'Thủ đô của Việt Nam là thành phố nào?', options:[{text:'Đà Nẵng',isCorrect:false},{text:'Hà Nội',isCorrect:true},{text:'Huế',isCorrect:false},{text:'TP. Hồ Chí Minh',isCorrect:false}] },
+                { id:'mlq3', text:'7 × 8 bằng bao nhiêu?', options:[{text:'54',isCorrect:false},{text:'56',isCorrect:true},{text:'64',isCorrect:false},{text:'48',isCorrect:false}] },
+                { id:'mlq4', text:'Từ nào dưới đây chỉ hoạt động?', options:[{text:'Chạy',isCorrect:true},{text:'Xanh',isCorrect:false},{text:'Cao',isCorrect:false},{text:'Đẹp',isCorrect:false}] },
+                { id:'mlq5', text:'Một giờ có bao nhiêu phút?', options:[{text:'30',isCorrect:false},{text:'45',isCorrect:false},{text:'60',isCorrect:true},{text:'100',isCorrect:false}] },
+                { id:'mlq6', text:'Phân số nào bằng một nửa?', options:[{text:'1/2',isCorrect:true},{text:'1/3',isCorrect:false},{text:'2/3',isCorrect:false},{text:'3/4',isCorrect:false}] },
+                { id:'mlq7', text:'Trong câu “Em bé đang đọc sách”, từ “đọc” là từ chỉ gì?', options:[{text:'Sự vật',isCorrect:false},{text:'Đặc điểm',isCorrect:false},{text:'Hoạt động',isCorrect:true},{text:'Số lượng',isCorrect:false}] },
+                { id:'mlq8', text:'Chu vi hình vuông cạnh 6 cm là bao nhiêu?', options:[{text:'12 cm',isCorrect:false},{text:'18 cm',isCorrect:false},{text:'24 cm',isCorrect:true},{text:'36 cm',isCorrect:false}] },
+                { id:'mlq9', text:'Số 4 508 có chữ số 5 ở hàng nào?', options:[{text:'Hàng nghìn',isCorrect:false},{text:'Hàng trăm',isCorrect:true},{text:'Hàng chục',isCorrect:false},{text:'Hàng đơn vị',isCorrect:false}] },
+                { id:'mlq10', text:'Nếu 3 quyển vở giá 18 000 đồng và giá mỗi quyển bằng nhau, 5 quyển vở giá bao nhiêu?', options:[{text:'24 000 đồng',isCorrect:false},{text:'28 000 đồng',isCorrect:false},{text:'30 000 đồng',isCorrect:true},{text:'36 000 đồng',isCorrect:false}] },
+                { id:'mlq11', text:'Một hình chữ nhật dài 12 cm, rộng bằng một nửa chiều dài. Diện tích là bao nhiêu?', options:[{text:'36 cm²',isCorrect:false},{text:'60 cm²',isCorrect:false},{text:'72 cm²',isCorrect:true},{text:'144 cm²',isCorrect:false}] },
+                { id:'mlq12', text:'Số nào khi chia cho 6 được thương 8 và dư 5?', options:[{text:'48',isCorrect:false},{text:'53',isCorrect:true},{text:'54',isCorrect:false},{text:'59',isCorrect:false}] },
+                { id:'mlq13', text:'Trung bình cộng của 18, 24 và 30 bằng bao nhiêu?', options:[{text:'22',isCorrect:false},{text:'24',isCorrect:true},{text:'26',isCorrect:false},{text:'72',isCorrect:false}] },
+                { id:'mlq14', text:'Một số tăng thêm 25% thì được 100. Số ban đầu là bao nhiêu?', options:[{text:'75',isCorrect:false},{text:'80',isCorrect:true},{text:'85',isCorrect:false},{text:'90',isCorrect:false}] },
+                { id:'mlq15', text:'Một lớp có 40 học sinh, 3/5 số học sinh là nữ. Số học sinh nam là bao nhiêu?', options:[{text:'14',isCorrect:false},{text:'16',isCorrect:true},{text:'20',isCorrect:false},{text:'24',isCorrect:false}] }
+            ];
+        }
+
+        function ensureMillionaireState() {
+            if (!state.millionaireGame) {
+                const defaults = millionaireDefaultQuestions();
+                state.millionaireGame = {
+                    view: 'config',
+                    settings: {
+                        grade: inferHomeroomGrade(),
+                        topic: '',
+                        questionCount: 10,
+                        playerId: state.students?.[0] ? String(state.students[0].id) : '',
+                        wrongRule: 'safe',       // safe | current
+                        useSafeMilestones: true,
+                        shuffleAnswers: true,
+                        soundEnabled: true
+                    },
+                    questions: defaults.slice(0,10).map(q => JSON.parse(JSON.stringify(q))),
+                    questionLibrary: defaults.map(q => JSON.parse(JSON.stringify(q))),
+                    play: null
+                };
+            }
+            const g = state.millionaireGame;
+            g.settings = { grade: inferHomeroomGrade(), topic:'', questionCount:10, playerId:'', wrongRule:'safe', useSafeMilestones:true, shuffleAnswers:true, soundEnabled:true, ...(g.settings||{}) };
+            g.settings.questionCount = Math.max(10, Math.min(15, Number(g.settings.questionCount)||10));
+            if (!Array.isArray(g.questions)) g.questions = [];
+            if (!Array.isArray(g.questionLibrary)) g.questionLibrary = [];
+            return g;
+        }
+
+        function millionairePlayerName(g) {
+            const student = (state.students || []).find(s => String(s.id) === String(g.settings.playerId));
+            return student?.name || 'Người chơi';
+        }
+
+        function millionaireFormatReward(value) {
+            return new Intl.NumberFormat('vi-VN').format(Number(value)||0) + ' điểm';
+        }
+
+        function millionaireClearTimers() {
+            (window.millionaireTimers || []).forEach(t => clearTimeout(t));
+            window.millionaireTimers = [];
+        }
+
+        function millionaireLater(fn, ms) {
+            const id = setTimeout(fn, ms);
+            window.millionaireTimers.push(id);
+            return id;
+        }
+
+        function millionaireFx(kind) {
+            const g = ensureMillionaireState();
+            if (!g.settings.soundEnabled) return;
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return;
+                if (!window.millionaireAudioContext) window.millionaireAudioContext = new AC();
+                const ctx = window.millionaireAudioContext;
+                if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+                const now = ctx.currentTime;
+                const make = (freq, start, dur, type='sine', gain=0.045) => {
+                    const o=ctx.createOscillator(), gn=ctx.createGain();
+                    o.type=type; o.frequency.setValueAtTime(freq, now+start);
+                    gn.gain.setValueAtTime(0.0001, now+start);
+                    gn.gain.exponentialRampToValueAtTime(gain, now+start+0.015);
+                    gn.gain.exponentialRampToValueAtTime(0.0001, now+start+dur);
+                    o.connect(gn); gn.connect(ctx.destination); o.start(now+start); o.stop(now+start+dur+0.02);
+                };
+                if (kind==='lock') { make(440,0,.12,'triangle',.035); make(554,.12,.12,'triangle',.03); }
+                else if (kind==='correct') { make(523,0,.15,'sine',.05); make(659,.14,.16,'sine',.05); make(784,.28,.28,'sine',.055); }
+                else if (kind==='wrong') { make(260,0,.18,'sawtooth',.04); make(196,.16,.28,'sawtooth',.035); }
+                else if (kind==='win') { [523,659,784,1046].forEach((f,i)=>make(f,i*.12,.28,'sine',.05)); }
+                else if (kind==='help') { make(660,0,.12,'triangle',.03); make(880,.11,.18,'triangle',.035); }
+            } catch(e) {}
+        }
+
+        function millionaireGetCorrectIndex(q) {
+            return Math.max(0, (q?.options || []).findIndex(o => !!o.isCorrect));
+        }
+
+        function millionaireSafeCorrectCount(correctCount) {
+            if (correctCount >= 10) return 10;
+            if (correctCount >= 5) return 5;
+            return 0;
+        }
+
+        window.updateMillionaireSetting = function(key, value) {
+            const g = ensureMillionaireState();
+            if (key === 'questionCount') value = Math.max(10, Math.min(15, Number(value)||10));
+            if (key === 'useSafeMilestones' || key === 'shuffleAnswers' || key === 'soundEnabled') value = !!value;
+            g.settings[key] = value;
+            saveData();
+            window.initMillionaireGame();
+        };
+
+        window.clearMillionaireActiveQuestions = function() {
+            const g = ensureMillionaireState();
+            if (!g.questions.length) return;
+            if (!confirm('Xóa toàn bộ câu hỏi đang dùng trong Ai là triệu phú? Thư viện câu hỏi vẫn được giữ nguyên.')) return;
+            g.questions = [];
+            saveData(); window.initMillionaireGame();
+        };
+
+        window.removeMillionaireActiveQuestion = function(id) {
+            const g = ensureMillionaireState();
+            g.questions = g.questions.filter(q => String(q.id)!==String(id));
+            saveData(); window.initMillionaireGame();
+        };
+
+        window.startMillionaireGame = function() {
+            const g = ensureMillionaireState();
+            const count = Math.max(10, Math.min(15, Number(g.settings.questionCount)||10));
+            if ((g.questions || []).length < count) return showToast(`Cần ít nhất ${count} câu trong Bộ câu hỏi. Hãy chọn thêm từ Thư viện hoặc tạo bằng AI.`, 'error');
+            millionaireClearTimers();
+            let selected = g.questions.slice(0, count).map(q => JSON.parse(JSON.stringify(q)));
+            if (g.settings.shuffleAnswers) {
+                selected.forEach(q => q.options = [...q.options].sort(()=>Math.random()-.5));
+            }
+            g.play = {
+                status: 'playing',
+                questions: selected,
+                index: 0,
+                correct: 0,
+                answered: 0,
+                currentReward: 0,
+                finalReward: 0,
+                chosenIndex: null,
+                phase: 'ready',
+                eliminated: [],
+                helpOverlay: null,
+                lifelines: { fifty:false, friend:false, audience:false },
+                completed: false,
+                wrong: false
+            };
+            g.view='play';
+            saveData();
+            if (g.settings.soundEnabled) window.startGameBackgroundMusic && window.startGameBackgroundMusic('millionaire');
+            else window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
+            window.initMillionaireGame();
+            window.enterInteractiveGameFullscreen && window.enterInteractiveGameFullscreen();
+        };
+
+        window.cleanupMillionaireGame = function(resetView=false) {
+            millionaireClearTimers();
+            if (window.stopGameBackgroundMusic) window.stopGameBackgroundMusic(true);
+            if (resetView) {
+                const g=ensureMillionaireState();
+                g.play=null; g.view='config';
+            }
+        };
+
+        window.stopMillionaireGame = function(toGameMenu=false) {
+            const g=ensureMillionaireState();
+            window.cleanupMillionaireGame(false);
+            window.exitInteractiveGameFullscreen && window.exitInteractiveGameFullscreen();
+            g.play=null; g.view='config'; saveData();
+            if (toGameMenu) { state.activeGame=null; renderLayout(); }
+            else window.initMillionaireGame();
+        };
+
+        window.toggleMillionaireSound = function() {
+            const g=ensureMillionaireState();
+            g.settings.soundEnabled=!g.settings.soundEnabled;
+            saveData();
+            if (g.settings.soundEnabled && g.play?.status==='playing') window.startGameBackgroundMusic && window.startGameBackgroundMusic('millionaire');
+            else window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(false);
+            window.initMillionaireGame();
+        };
+
+        window.submitMillionaireAnswer = function(index) {
+            const g=ensureMillionaireState(), p=g.play;
+            if (!p || p.status!=='playing' || p.phase!=='ready') return;
+            const q=p.questions[p.index];
+            if (!q || p.eliminated.includes(index)) return;
+            p.chosenIndex=index; p.phase='locked'; p.helpOverlay=null;
+            millionaireFx('lock'); window.initMillionaireGame();
+            millionaireLater(()=>{
+                if (!g.play || g.play.status!=='playing') return;
+                const current=g.play, question=current.questions[current.index];
+                const correctIdx=millionaireGetCorrectIndex(question);
+                const isCorrect=Number(current.chosenIndex)===correctIdx;
+                current.phase='revealed'; current.answered++;
+                if (isCorrect) {
+                    current.correct++;
+                    const rewards=getMillionaireRewardSteps(current.questions.length);
+                    current.currentReward=rewards[current.index] || current.currentReward;
+                    millionaireFx('correct');
+                } else {
+                    current.wrong=true; millionaireFx('wrong');
+                }
+                window.initMillionaireGame();
+                millionaireLater(()=>{
+                    if (!g.play || g.play.status!=='playing') return;
+                    if (isCorrect) {
+                        if (g.play.index >= g.play.questions.length-1) {
+                            g.play.completed=true;
+                            g.play.finalReward=g.play.currentReward;
+                            window.finishMillionaireGame(true);
+                        } else {
+                            g.play.index++;
+                            g.play.chosenIndex=null; g.play.phase='ready'; g.play.eliminated=[]; g.play.helpOverlay=null;
+                            window.initMillionaireGame();
+                        }
+                    } else {
+                        const correctCount=g.play.correct;
+                        if (g.settings.wrongRule==='safe' && g.settings.useSafeMilestones) {
+                            const safeCount=millionaireSafeCorrectCount(correctCount);
+                            const rewards=getMillionaireRewardSteps(g.play.questions.length);
+                            g.play.finalReward=safeCount>0 ? rewards[safeCount-1] : 0;
+                        } else {
+                            g.play.finalReward=g.play.currentReward || 0;
+                        }
+                        window.finishMillionaireGame(false);
+                    }
+                }, isCorrect ? 1150 : 1450);
+            }, 780);
+        };
+
+        window.finishMillionaireGame = function(completed=false) {
+            const g=ensureMillionaireState(), p=g.play;
+            if (!p || p.status==='finished') return;
+            p.status='finished'; p.completed=!!completed; p.phase='finished'; p.helpOverlay=null;
+            if (completed) { p.finalReward=p.currentReward; millionaireFx('win'); }
+            window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
+            saveData(); window.initMillionaireGame();
+        };
+
+        window.replayMillionaireGame = function() {
+            const g=ensureMillionaireState();
+            g.play=null; g.view='config'; saveData(); window.initMillionaireGame();
+        };
+
+        window.useMillionaireFifty = function() {
+            const g=ensureMillionaireState(),p=g.play;
+            if(!p||p.status!=='playing'||p.phase!=='ready'||p.lifelines.fifty)return;
+            const q=p.questions[p.index], correct=millionaireGetCorrectIndex(q);
+            const wrong=[0,1,2,3].filter(i=>i!==correct).sort(()=>Math.random()-.5);
+            p.eliminated=wrong.slice(0,2); p.lifelines.fifty=true; millionaireFx('help'); saveData(); window.initMillionaireGame();
+        };
+
+        function millionaireDifficulty01(p) {
+            return p.questions.length<=1 ? 0 : p.index/(p.questions.length-1);
+        }
+
+        window.useMillionaireFriend = function() {
+            const g=ensureMillionaireState(),p=g.play;
+            if(!p||p.status!=='playing'||p.phase!=='ready'||p.lifelines.friend)return;
+            const q=p.questions[p.index], correct=millionaireGetCorrectIndex(q), d=millionaireDifficulty01(p);
+            const available=[0,1,2,3].filter(i=>!p.eliminated.includes(i));
+            const probCorrect=Math.max(.48, .86 - d*.34);
+            let suggestion;
+            if (Math.random()<probCorrect && available.includes(correct)) suggestion=correct;
+            else {
+                const wrong=available.filter(i=>i!==correct);
+                suggestion=wrong[Math.floor(Math.random()*wrong.length)] ?? correct;
+            }
+            let confidence=Math.round((suggestion===correct ? 68+Math.random()*24 : 48+Math.random()*27) - d*10);
+            confidence=Math.max(42,Math.min(92,confidence));
+            p.lifelines.friend=true;
+            p.helpOverlay={type:'friend', suggestion, confidence};
+            millionaireFx('help'); saveData(); window.initMillionaireGame();
+        };
+
+        function millionaireAudiencePercentages(p,q) {
+            const correct=millionaireGetCorrectIndex(q), d=millionaireDifficulty01(p);
+            const active=[0,1,2,3].filter(i=>!p.eliminated.includes(i));
+            const weights=[0,0,0,0];
+            active.forEach(i=>weights[i]=0.55+Math.random()*1.3);
+            // Câu dễ thường nghiêng về đúng; câu khó có xác suất đám đông bị dẫn sang đáp án sai.
+            const crowdCorrectChance=Math.max(.50, .88-d*.38);
+            if (Math.random()<crowdCorrectChance && active.includes(correct)) weights[correct]+=2.2*(1-d)+0.6;
+            else {
+                const wrong=active.filter(i=>i!==correct);
+                const leader=wrong[Math.floor(Math.random()*wrong.length)];
+                if (leader!==undefined) weights[leader]+=1.5+Math.random()*1.5;
+                if (active.includes(correct)) weights[correct]+=0.35;
+            }
+            const sum=weights.reduce((a,b)=>a+b,0)||1;
+            let vals=weights.map(w=>Math.floor(w/sum*100));
+            let remain=100-vals.reduce((a,b)=>a+b,0);
+            const order=active.slice().sort(()=>Math.random()-.5);
+            for(let k=0;k<remain;k++) vals[order[k%order.length]]++;
+            return vals;
+        }
+
+        window.useMillionaireAudience = function() {
+            const g=ensureMillionaireState(),p=g.play;
+            if(!p||p.status!=='playing'||p.phase!=='ready'||p.lifelines.audience)return;
+            const q=p.questions[p.index];
+            p.lifelines.audience=true;
+            p.helpOverlay={type:'audience', percentages:millionaireAudiencePercentages(p,q)};
+            millionaireFx('help'); saveData(); window.initMillionaireGame();
+        };
+
+        window.closeMillionaireHelp = function(){ const g=ensureMillionaireState(); if(g.play){g.play.helpOverlay=null;window.initMillionaireGame();} };
+
+        function millionaireRenderConfig(g) {
+            const gradeOpts=[1,2,3,4,5].map(n=>`<option value="Lớp ${n}" ${g.settings.grade===`Lớp ${n}`?'selected':''}>Lớp ${n}</option>`).join('');
+            const students=(state.students||[]).map(s=>`<option value="${mfgEsc(s.id)}" ${String(g.settings.playerId)===String(s.id)?'selected':''}>${mfgEsc(s.name)}</option>`).join('');
+            const qCount=g.questions.length;
+            return `
+                <div class="w-full h-full min-h-[620px] bg-gradient-to-br from-slate-50 via-indigo-50 to-violet-50 p-4 md:p-7 overflow-y-auto custom-scrollbar rounded-[1.5rem]">
+                    <div class="max-w-6xl mx-auto space-y-5 animate-fade-in">
+                        <div class="rounded-[2rem] bg-gradient-to-r from-[#111c4e] via-[#39246f] to-[#111c4e] text-white p-6 md:p-8 shadow-xl relative overflow-hidden">
+                            <div class="absolute inset-0 opacity-30" style="background-image:radial-gradient(circle at 20% 30%,#7dd3fc 0 1px,transparent 2px),radial-gradient(circle at 80% 60%,#f0abfc 0 1px,transparent 2px);background-size:48px 48px,64px 64px"></div>
+                            <div class="relative z-10 flex items-center gap-4"><div class="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shadow-inner"><i class="ph-fill ph-diamond text-4xl text-cyan-300"></i></div><div><div class="text-xs font-black tracking-[.2em] text-cyan-200 uppercase">Gameshow kiến thức · 1 người chơi</div><h2 class="text-3xl md:text-4xl font-black mt-1">AI LÀ TRIỆU PHÚ</h2><p class="text-sm text-indigo-100 mt-2">10–15 câu tăng dần độ khó · 3 quyền trợ giúp · dùng chung Gemini AI và Thư viện câu hỏi</p></div></div>
+                        </div>
+                        <div class="grid grid-cols-1 xl:grid-cols-[1.05fr_.95fr] gap-5">
+                            <div class="bg-white rounded-[2rem] border border-indigo-100 shadow-sm p-5 md:p-6 space-y-5">
+                                <div class="flex items-center justify-between"><h3 class="font-black text-xl text-slate-800 flex items-center gap-2"><i class="ph-fill ph-sliders-horizontal text-violet-600"></i> Cấu hình trò chơi</h3><span class="px-3 py-1.5 rounded-full bg-violet-50 text-violet-700 text-xs font-black">${qCount} câu đang dùng</span></div>
+                                <div class="grid sm:grid-cols-2 gap-4">
+                                    <div><label class="block text-xs font-black text-slate-500 mb-1.5">Khối lớp</label><select onchange="updateMillionaireSetting('grade',this.value)" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 font-bold">${gradeOpts}</select></div>
+                                    <div><label class="block text-xs font-black text-slate-500 mb-1.5">Người chơi</label><select onchange="updateMillionaireSetting('playerId',this.value)" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 font-bold"><option value="">Người chơi</option>${students}</select></div>
+                                    <div><label class="block text-xs font-black text-slate-500 mb-1.5">Môn / chủ đề</label><input value="${mfgEsc(g.settings.topic||'')}" oninput="ensureMillionaireState().settings.topic=this.value" onchange="saveData()" placeholder="VD: Toán - Phân số" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 font-bold outline-none focus:border-violet-400"></div>
+                                    <div><label class="block text-xs font-black text-slate-500 mb-1.5">Số câu (10–15)</label><input type="number" min="10" max="15" value="${g.settings.questionCount}" onchange="updateMillionaireSetting('questionCount',this.value)" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 font-bold"></div>
+                                </div>
+                                <div class="grid sm:grid-cols-2 gap-3">
+                                    <label class="p-4 rounded-2xl border-2 cursor-pointer ${g.settings.wrongRule==='safe'?'border-violet-400 bg-violet-50':'border-slate-200 bg-white'}"><input type="radio" name="ml-wrong" value="safe" ${g.settings.wrongRule==='safe'?'checked':''} onchange="updateMillionaireSetting('wrongRule','safe')" class="accent-violet-600 mr-2"><b class="text-slate-800">Sai → về mốc an toàn</b><div class="text-xs text-slate-500 mt-1 ml-6">Mốc an toàn tại câu 5 và 10.</div></label>
+                                    <label class="p-4 rounded-2xl border-2 cursor-pointer ${g.settings.wrongRule==='current'?'border-violet-400 bg-violet-50':'border-slate-200 bg-white'}"><input type="radio" name="ml-wrong" value="current" ${g.settings.wrongRule==='current'?'checked':''} onchange="updateMillionaireSetting('wrongRule','current')" class="accent-violet-600 mr-2"><b class="text-slate-800">Sai → giữ mức đã đạt</b><div class="text-xs text-slate-500 mt-1 ml-6">Kết thúc với phần thưởng hiện tại.</div></label>
+                                </div>
+                                <div class="flex flex-wrap gap-3">
+                                    <button onclick="openGameQuestionLibrary('millionaire')" class="px-5 py-3 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-black rounded-xl flex items-center gap-2"><i class="ph-fill ph-books"></i> THƯ VIỆN CÂU HỎI</button>
+                                    <button onclick="openGameAIGeneratorModal('millionaire')" class="px-5 py-3 bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white hover:shadow-lg font-black rounded-xl flex items-center gap-2"><i class="ph-fill ph-sparkle"></i> AI TẠO NHANH</button>
+                                    <button onclick="clearMillionaireActiveQuestions()" class="px-5 py-3 bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 font-black rounded-xl flex items-center gap-2"><i class="ph-bold ph-trash"></i> XÓA BỘ CÂU HỎI</button>
+                                </div>
+                                <div class="flex flex-wrap gap-4 text-sm font-bold text-slate-600"><label class="flex items-center gap-2"><input type="checkbox" ${g.settings.shuffleAnswers?'checked':''} onchange="updateMillionaireSetting('shuffleAnswers',this.checked)" class="w-5 h-5 accent-violet-600"> Đảo vị trí đáp án khi chơi</label><label class="flex items-center gap-2"><input type="checkbox" ${g.settings.soundEnabled?'checked':''} onchange="updateMillionaireSetting('soundEnabled',this.checked)" class="w-5 h-5 accent-violet-600"> Âm thanh</label></div>
+                                <button onclick="startMillionaireGame()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 hover:shadow-xl hover:-translate-y-0.5 text-white font-black text-lg transition-all flex items-center justify-center gap-2"><i class="ph-fill ph-play-circle text-2xl"></i> BẮT ĐẦU CHƠI FULL MÀN HÌNH</button>
+                            </div>
+                            <div class="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-5 md:p-6 flex flex-col min-h-[430px]">
+                                <div class="flex justify-between items-center gap-3 mb-4"><div><h3 class="font-black text-lg text-slate-800">Bộ câu hỏi đang dùng</h3><p class="text-xs text-slate-500 mt-1">Thứ tự từ trên xuống là thứ tự độ khó. AI tạo cho trò này sẽ sắp từ dễ → khó.</p></div><span class="text-xs font-black px-3 py-1.5 bg-slate-100 rounded-full">Cần ${g.settings.questionCount} câu</span></div>
+                                <div class="space-y-2 overflow-y-auto custom-scrollbar pr-1 flex-1 max-h-[480px]">${qCount ? g.questions.map((q,i)=>`<div class="p-3 rounded-xl border ${i<Number(g.settings.questionCount)?'border-violet-100 bg-violet-50/50':'border-slate-100 bg-slate-50'} flex items-start gap-3"><div class="w-8 h-8 rounded-lg ${i<5?'bg-emerald-100 text-emerald-700':i<10?'bg-amber-100 text-amber-700':'bg-rose-100 text-rose-700'} flex items-center justify-center font-black text-xs flex-shrink-0">${i+1}</div><div class="flex-1 min-w-0"><div class="font-bold text-sm text-slate-700 line-clamp-2">${mfgEsc(q.text)}</div></div><button onclick="removeMillionaireActiveQuestion('${mfgEsc(q.id)}')" class="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50"><i class="ph-bold ph-x"></i></button></div>`).join('') : `<div class="h-full min-h-[300px] flex flex-col items-center justify-center text-slate-400 text-center"><i class="ph-duotone ph-books text-6xl mb-3"></i><b>Chưa có câu hỏi</b><span class="text-xs mt-1">Chọn từ Thư viện hoặc tạo nhanh bằng AI.</span></div>`}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function millionaireRenderHelpOverlay(p,q) {
+            const ov=p.helpOverlay; if(!ov) return '';
+            if(ov.type==='friend') {
+                const letter=String.fromCharCode(65+ov.suggestion);
+                return `<div class="absolute inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4"><div class="max-w-lg w-full rounded-[2rem] border border-cyan-300/30 bg-[#111a42] text-white shadow-2xl p-6 md:p-8 text-center"><div class="w-16 h-16 mx-auto rounded-full bg-cyan-400/15 text-cyan-300 flex items-center justify-center mb-4"><i class="ph-fill ph-users-three text-4xl"></i></div><h3 class="text-2xl font-black">Ý kiến bạn bè</h3><p class="mt-4 text-lg text-indigo-100">“Mình nghĩ đáp án <b class="text-cyan-300 text-2xl">${letter}</b> – khoảng <b>${ov.confidence}%</b> chắc chắn.”</p><div class="mt-3 text-xs text-indigo-300">Đây chỉ là gợi ý mô phỏng, có thể đúng hoặc sai.</div><button onclick="closeMillionaireHelp()" class="mt-6 px-7 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-xl">ĐÃ HIỂU</button></div></div>`;
+            }
+            if(ov.type==='audience') {
+                const vals=ov.percentages||[25,25,25,25], max=Math.max(...vals);
+                return `<div class="absolute inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4"><div class="max-w-2xl w-full rounded-[2rem] border border-fuchsia-300/30 bg-[#111a42] text-white shadow-2xl p-6 md:p-8"><div class="text-center"><div class="w-16 h-16 mx-auto rounded-full bg-fuchsia-400/15 text-fuchsia-300 flex items-center justify-center mb-3"><i class="ph-fill ph-chart-bar text-4xl"></i></div><h3 class="text-2xl font-black">Ý kiến khán giả</h3><p class="text-xs text-indigo-300 mt-1">Kết quả mô phỏng, không đảm bảo đáp án cao nhất là đáp án đúng.</p></div><div class="mt-6 grid grid-cols-4 gap-3 items-end h-48">${vals.map((v,i)=>`<div class="h-full flex flex-col justify-end items-center gap-2"><div class="font-black text-lg ${v===max?'text-yellow-300':'text-white'}">${v}%</div><div class="w-16 max-w-full rounded-t-xl bg-gradient-to-t ${i===0?'from-blue-600 to-cyan-400':i===1?'from-violet-600 to-fuchsia-400':i===2?'from-amber-600 to-yellow-300':'from-emerald-600 to-lime-300'} transition-all" style="height:${Math.max(4,v)}%"></div><div class="w-10 h-10 rounded-full border border-white/20 bg-white/10 flex items-center justify-center font-black">${String.fromCharCode(65+i)}</div></div>`).join('')}</div><div class="text-center"><button onclick="closeMillionaireHelp()" class="mt-6 px-7 py-3 bg-fuchsia-500 hover:bg-fuchsia-400 text-white font-black rounded-xl">ĐÓNG</button></div></div></div>`;
+            }
+            return '';
+        }
+
+        function millionaireRenderResult(g,p) {
+            const accuracy=p.answered ? Math.round(p.correct/p.answered*100) : 0;
+            return `<div class="w-full h-full min-h-[600px] relative overflow-hidden rounded-[1.5rem] bg-[#07112f] text-white flex items-center justify-center p-5"><style>@keyframes mlSpark{0%{transform:translateY(20px) scale(.4);opacity:0}50%{opacity:1}100%{transform:translateY(-180px) scale(1);opacity:0}}.ml-spark{animation:mlSpark 2.2s ease-out infinite}</style><div class="absolute inset-0 opacity-60" style="background:radial-gradient(circle at 50% 20%,rgba(124,58,237,.5),transparent 35%),radial-gradient(circle at 15% 80%,rgba(14,165,233,.35),transparent 30%),radial-gradient(circle at 85% 75%,rgba(217,70,239,.25),transparent 30%)"></div>${p.completed?Array.from({length:18},(_,i)=>`<span class="ml-spark absolute text-yellow-300" style="left:${4+i*5.2}%;bottom:${5+(i%4)*8}%;animation-delay:${(i%6)*.2}s">✦</span>`).join(''):''}<div class="relative z-10 max-w-3xl w-full rounded-[2rem] border border-white/15 bg-white/10 backdrop-blur-xl shadow-2xl p-6 md:p-10 text-center"><div class="w-24 h-24 mx-auto rounded-full ${p.completed?'bg-yellow-400/20 text-yellow-300':'bg-violet-400/20 text-violet-200'} flex items-center justify-center border border-white/20 mb-5"><i class="ph-fill ${p.completed?'ph-trophy':'ph-star'} text-6xl"></i></div><div class="text-sm font-black tracking-[.2em] text-cyan-300 uppercase">${p.completed?'Xuất sắc! Hoàn thành toàn bộ':'Kết thúc lượt chơi'}</div><h2 class="text-4xl md:text-5xl font-black mt-2">${mfgEsc(millionairePlayerName(g))}</h2><div class="grid grid-cols-3 gap-3 mt-7"><div class="rounded-2xl bg-white/10 border border-white/10 p-4"><div class="text-2xl md:text-3xl font-black text-emerald-300">${p.correct}</div><div class="text-xs text-indigo-200 mt-1">Câu đúng</div></div><div class="rounded-2xl bg-white/10 border border-white/10 p-4"><div class="text-2xl md:text-3xl font-black text-cyan-300">${accuracy}%</div><div class="text-xs text-indigo-200 mt-1">Chính xác</div></div><div class="rounded-2xl bg-white/10 border border-white/10 p-4"><div class="text-xl md:text-2xl font-black text-yellow-300">${millionaireFormatReward(p.finalReward)}</div><div class="text-xs text-indigo-200 mt-1">Phần thưởng</div></div></div><div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center"><button onclick="replayMillionaireGame()" class="px-7 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 font-black hover:shadow-xl"><i class="ph-fill ph-arrow-counter-clockwise mr-2"></i>CHƠI LẠI</button><button onclick="stopMillionaireGame(true)" class="px-7 py-3.5 rounded-xl bg-white/10 border border-white/20 font-black hover:bg-white/20"><i class="ph-bold ph-game-controller mr-2"></i>VỀ GÓC TRÒ CHƠI</button></div></div></div>`;
+        }
+
+        function millionaireRenderPlay(g) {
+            const p=g.play; if(!p) return millionaireRenderConfig(g);
+            if(p.status==='finished') return millionaireRenderResult(g,p);
+            const q=p.questions[p.index], correctIdx=millionaireGetCorrectIndex(q), rewards=getMillionaireRewardSteps(p.questions.length);
+            const safeNums=[5,10].filter(n=>n<=p.questions.length);
+            const letters=['A','B','C','D'];
+            const optionHtml=(q.options||[]).map((o,i)=>{
+                const eliminated=p.eliminated.includes(i);
+                let cls='border-indigo-400/35 bg-[#12204a] hover:bg-[#1a2d63] hover:border-cyan-300/70';
+                if(p.phase==='locked'&&p.chosenIndex===i) cls='border-yellow-300 bg-yellow-500/20 shadow-[0_0_30px_rgba(250,204,21,.25)]';
+                if(p.phase==='revealed') {
+                    if(i===correctIdx) cls='border-emerald-300 bg-emerald-500/25 shadow-[0_0_30px_rgba(52,211,153,.3)]';
+                    else if(p.chosenIndex===i) cls='border-red-400 bg-red-500/25';
+                    else cls='border-white/10 bg-white/5 opacity-55';
+                }
+                return `<button ${eliminated||p.phase!=='ready'?'disabled':''} onclick="submitMillionaireAnswer(${i})" class="ml-option relative min-h-[82px] md:min-h-[96px] w-full rounded-2xl border-2 ${cls} transition-all duration-200 p-4 md:p-5 flex items-center gap-4 text-left ${eliminated?'opacity-15 scale-[.98]':''}"><span class="w-11 h-11 md:w-14 md:h-14 rounded-full border border-cyan-300/40 bg-cyan-400/10 flex items-center justify-center text-cyan-300 font-black text-xl flex-shrink-0">${letters[i]}</span><span class="text-lg md:text-xl xl:text-2xl font-bold text-white leading-snug">${eliminated?'—':mfgEsc(o.text)}</span>${p.phase==='revealed'&&i===correctIdx?'<i class="ph-fill ph-check-circle text-3xl text-emerald-300 ml-auto"></i>':''}</button>`;
+            }).join('');
+            const ladder=[...rewards].map((r,i)=>({r,i})).reverse().map(({r,i})=>{const n=i+1,active=i===p.index,passed=i<p.index,safe=safeNums.includes(n);return `<div class="flex items-center gap-2 px-3 py-1.5 rounded-lg ${active?'bg-yellow-400 text-slate-950 shadow-lg':passed?'bg-emerald-400/15 text-emerald-200':safe?'bg-white/10 text-yellow-200':'text-indigo-200'}"><span class="w-7 text-right font-black text-xs">${n}</span><span class="flex-1 font-bold text-xs whitespace-nowrap">${millionaireFormatReward(r)}</span>${safe?'<i class="ph-fill ph-shield-check text-yellow-300"></i>':''}</div>`}).join('');
+            const answeredLabel=`${p.correct}/${p.questions.length}`;
+            return `
+                <div class="ml-shell w-full h-full min-h-[650px] relative overflow-auto custom-scrollbar rounded-[1.5rem] bg-[#050b25] text-white">
+                    <style>
+                        @keyframes mlGlow{0%,100%{opacity:.45;transform:scale(1)}50%{opacity:.8;transform:scale(1.05)}}
+                        @keyframes mlSweep{0%{transform:translateX(-120%)}100%{transform:translateX(220%)}}
+                        .ml-stage-orb{animation:mlGlow 4s ease-in-out infinite}.ml-question:after{content:'';position:absolute;inset:0;width:35%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);animation:mlSweep 7s linear infinite;pointer-events:none}.ml-option:not(:disabled):hover{transform:translateY(-2px)}
+                        @media(max-width:800px){.ml-shell{min-height:100%;}.ml-ladder{max-height:150px;overflow:auto}.ml-option{min-height:72px!important}.ml-question-text{font-size:clamp(22px,5vw,30px)!important}}
+                    </style>
+                    <div class="fixed-fullscreen-safe min-h-full relative flex flex-col" style="background:radial-gradient(circle at 50% 10%,rgba(79,70,229,.42),transparent 34%),radial-gradient(circle at 20% 65%,rgba(14,165,233,.18),transparent 30%),radial-gradient(circle at 85% 70%,rgba(168,85,247,.22),transparent 30%),#050b25">
+                        <div class="absolute inset-0 opacity-40 pointer-events-none" style="background-image:radial-gradient(circle,#fff 0 1px,transparent 1.4px);background-size:54px 54px"></div>
+                        <header class="relative z-20 min-h-[58px] px-3 md:px-5 py-2.5 border-b border-white/10 bg-[#07112f]/85 backdrop-blur flex items-center justify-between gap-2">
+                            <button onclick="stopMillionaireGame(false)" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-black text-xs md:text-sm flex items-center gap-2"><i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">Về sảnh</span></button>
+                            <div class="text-center min-w-0"><div class="font-black text-sm md:text-lg tracking-wide truncate">💎 AI LÀ TRIỆU PHÚ</div><div class="text-[10px] md:text-xs text-cyan-200 font-bold">Câu ${p.index+1}/${p.questions.length} · Đúng ${answeredLabel} · ${millionaireFormatReward(p.currentReward)}</div></div>
+                            <div class="flex items-center gap-2"><button onclick="toggleMillionaireSound()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10" title="Âm thanh"><i class="ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}"></i></button><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10" title="Toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-out"></i></button></div>
+                        </header>
+                        <div class="relative z-10 flex-1 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_230px] gap-3 md:gap-4 p-3 md:p-5 min-h-0">
+                            <main class="min-w-0 flex flex-col justify-center gap-4 md:gap-5">
+                                <div class="flex items-center justify-center gap-2 text-xs md:text-sm font-black text-indigo-200"><span class="px-3 py-1.5 rounded-full bg-white/10 border border-white/10"><i class="ph-fill ph-user-circle mr-1 text-cyan-300"></i>${mfgEsc(millionairePlayerName(g))}</span><span class="px-3 py-1.5 rounded-full bg-white/10 border border-white/10">Mức ${p.index+1}</span></div>
+                                <section class="ml-question relative overflow-hidden rounded-[2rem] border-2 border-cyan-300/30 bg-gradient-to-r from-[#101c4d] via-[#19245a] to-[#101c4d] shadow-[0_0_45px_rgba(59,130,246,.15)] p-5 md:p-7 xl:p-9 min-h-[140px] flex items-center justify-center"><div class="ml-stage-orb absolute -left-10 -top-16 w-40 h-40 rounded-full bg-cyan-400/15 blur-2xl"></div><div class="ml-stage-orb absolute -right-10 -bottom-16 w-44 h-44 rounded-full bg-fuchsia-400/15 blur-2xl" style="animation-delay:1.2s"></div><div class="relative z-10 text-center w-full"><div class="text-[11px] md:text-xs font-black tracking-[.22em] text-cyan-300 uppercase mb-3">Câu hỏi số ${p.index+1}</div><div class="ml-question-text text-[clamp(25px,2.2vw,36px)] font-black leading-[1.25] text-white drop-shadow">${mfgEsc(q.text)}</div></div></section>
+                                <section class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">${optionHtml}</section>
+                                <section class="grid grid-cols-3 gap-2 md:gap-3">
+                                    <button onclick="useMillionaireFifty()" ${p.lifelines.fifty||p.phase!=='ready'?'disabled':''} class="py-3 md:py-4 px-2 rounded-2xl border ${p.lifelines.fifty?'border-white/5 bg-white/5 text-white/25':'border-cyan-300/25 bg-cyan-400/10 hover:bg-cyan-400/20 text-cyan-100'} font-black text-xs md:text-sm transition-all"><i class="ph-fill ph-scissors text-lg md:text-xl block md:inline md:mr-2"></i>50/50</button>
+                                    <button onclick="useMillionaireFriend()" ${p.lifelines.friend||p.phase!=='ready'?'disabled':''} class="py-3 md:py-4 px-2 rounded-2xl border ${p.lifelines.friend?'border-white/5 bg-white/5 text-white/25':'border-violet-300/25 bg-violet-400/10 hover:bg-violet-400/20 text-violet-100'} font-black text-xs md:text-sm transition-all"><i class="ph-fill ph-users-three text-lg md:text-xl block md:inline md:mr-2"></i>Hỏi bạn bè</button>
+                                    <button onclick="useMillionaireAudience()" ${p.lifelines.audience||p.phase!=='ready'?'disabled':''} class="py-3 md:py-4 px-2 rounded-2xl border ${p.lifelines.audience?'border-white/5 bg-white/5 text-white/25':'border-fuchsia-300/25 bg-fuchsia-400/10 hover:bg-fuchsia-400/20 text-fuchsia-100'} font-black text-xs md:text-sm transition-all"><i class="ph-fill ph-chart-bar text-lg md:text-xl block md:inline md:mr-2"></i>Hỏi khán giả</button>
+                                </section>
+                                ${p.phase==='locked'?'<div class="text-center font-black text-yellow-300 animate-pulse"><i class="ph-fill ph-lock-key mr-2"></i>ĐÃ KHÓA ĐÁP ÁN · ĐANG KIỂM TRA...</div>':''}
+                                ${p.phase==='revealed'?`<div class="text-center font-black ${p.chosenIndex===correctIdx?'text-emerald-300':'text-red-300'}">${p.chosenIndex===correctIdx?'✓ CHÍNH XÁC!':'✕ CHƯA ĐÚNG · Đáp án đúng: '+letters[correctIdx]}</div>`:''}
+                            </main>
+                            <aside class="ml-ladder rounded-[1.5rem] border border-white/10 bg-[#0b1538]/85 backdrop-blur p-3 md:p-4 shadow-xl self-stretch"><div class="flex items-center justify-between mb-2 px-1"><div class="font-black text-sm text-yellow-200"><i class="ph-fill ph-stairs mr-1"></i>Thang điểm</div><div class="text-[10px] text-indigo-300">🛡 Mốc an toàn</div></div><div class="space-y-1">${ladder}</div></aside>
+                        </div>
+                        ${millionaireRenderHelpOverlay(p,q)}
+                    </div>
+                </div>`;
+        }
+
+        window.initMillionaireGame = function() {
+            const mount=document.getElementById('game-mount-point'); if(!mount)return;
+            const g=ensureMillionaireState();
+            mount.innerHTML = g.view==='play' ? millionaireRenderPlay(g) : millionaireRenderConfig(g);
+            setTimeout(()=>window.updateInteractiveGameFullscreenButtons && window.updateInteractiveGameFullscreenButtons(),0);
+        };
+
         // =============================================================
         // NGÓN TAY THẦN KỲ - CUỘC ĐUA NGÔI SAO
         // Nhận diện 1-4 ngón tay bằng MediaPipe Hand Landmarker.
@@ -3851,14 +4317,14 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                     <div class="relative z-10 h-14 flex items-center justify-between px-3 md:px-5 bg-gradient-to-r from-orange-500 via-amber-400 to-orange-500 text-slate-900 border-b-4 border-orange-600 shadow-lg">
                         <div class="flex items-center gap-2 min-w-0 w-[31%]">
                             <span class="text-lg">⭐</span><span class="text-[11px] md:text-sm font-black truncate">${mfgEsc(g.settings.team1Name)}</span>
-                            <span class="ml-auto bg-white/80 border-2 border-white rounded-full min-w-10 h-8 px-3 flex items-center justify-center font-black">${p.leftScore}</span>
+                            <span class="ml-auto bg-white/100 border-2 border-white rounded-full min-w-10 h-8 px-3 flex items-center justify-center font-black">${p.leftScore}</span>
                         </div>
                         <div class="text-center w-[38%] min-w-0">
                             <div class="text-xs md:text-sm font-black truncate">${mfgEsc(g.settings.title)} - Bản Chạy Thử</div>
                             <div id="mfg-timer" class="inline-flex mt-0.5 bg-white/90 px-3 py-0.5 rounded-full text-xs font-black shadow">⏱ ${timerMin}:${String(timerSec).padStart(2,'0')}</div>
                         </div>
                         <div class="flex items-center gap-2 min-w-0 w-[31%] justify-end">
-                            <span class="bg-white/80 border-2 border-white rounded-full min-w-10 h-8 px-3 flex items-center justify-center font-black">${p.rightScore}</span>
+                            <span class="bg-white/100 border-2 border-white rounded-full min-w-10 h-8 px-3 flex items-center justify-center font-black">${p.rightScore}</span>
                             <span class="text-[11px] md:text-sm font-black truncate">${mfgEsc(g.settings.team2Name)}</span><span class="text-lg">⭐</span>
                             <button onclick="toggleMagicFingerCamera()" class="hidden md:flex w-8 h-8 rounded-lg bg-slate-900/20 hover:bg-slate-900/30 items-center justify-center" title="Bật/tắt camera"><i class="ph-fill ph-video-camera"></i></button>
                             <button data-interactive-fullscreen-btn onclick="toggleMagicFingerFullscreen()" class="flex w-8 h-8 rounded-lg bg-slate-900/20 hover:bg-slate-900/30 items-center justify-center" title="Mở toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-out"></i></button>
@@ -7258,7 +7724,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                                 </svg>
                             </div>
 
-                            <div class="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-full bg-white/85 border border-white shadow text-[10px] md:text-xs font-black text-slate-600 whitespace-nowrap">
+                            <div class="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-full bg-white/105 border border-white shadow text-[10px] md:text-xs font-black text-slate-600 whitespace-nowrap">
                                 ${p.status === 'finished' ? (visualWinner === 1 ? `🎉 ${escapeHtmlAttr(kState.settings.team1Name)} chiến thắng!` : visualWinner === 2 ? `🎉 ${escapeHtmlAttr(kState.settings.team2Name)} chiến thắng!` : '🤝 Hai đội hòa nhau!') : (p.ropeOffset === 0 ? '💪 Hai đội đang giằng co cân bằng!' : p.ropeOffset < 0 ? `🔵 ${escapeHtmlAttr(kState.settings.team1Name)} đang chiếm ưu thế` : `🔴 ${escapeHtmlAttr(kState.settings.team2Name)} đang chiếm ưu thế`)}
                             </div>
                         </div>
@@ -7703,6 +8169,9 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                         </button>
                         <button onclick="switchGame('space-race')" class="px-6 py-3.5 bg-white border-2 border-cyan-200 text-cyan-700 font-bold rounded-2xl shadow-sm hover:shadow-md hover:bg-cyan-50 hover:border-cyan-300 transition-all flex items-center gap-2 ${state.activeGame === 'space-race' ? 'ring-4 ring-cyan-100 bg-cyan-50' : ''}">
                             <i class="ph-fill ph-rocket-launch text-xl"></i> 🚀 Phi thuyền vũ trụ
+                        </button>
+                        <button onclick="switchGame('millionaire')" class="px-6 py-3.5 bg-white border-2 border-violet-200 text-violet-700 font-bold rounded-2xl shadow-sm hover:shadow-md hover:bg-violet-50 hover:border-violet-300 transition-all flex items-center gap-2 ${state.activeGame === 'millionaire' ? 'ring-4 ring-violet-100 bg-violet-50' : ''}">
+                            <i class="ph-fill ph-diamond text-xl"></i> 💎 Ai là triệu phú
                         </button>
                     </div>
 
