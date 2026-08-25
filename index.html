@@ -6351,6 +6351,9 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 if (!selectedOption) return;
 
                 if (selectedOption.isCorrect) {
+                    // Chỉ phục vụ hoạt ảnh Kéo co: ghi nhận đội vừa kéo mạnh (không ảnh hưởng điểm/luật chơi).
+                    p.lastPullTeam = teamNum;
+                    p.lastPullAt = Date.now();
                     team.score += 1;
                     if (teamNum === 1) {
                         p.ropeOffset -= 1; // Kéo sang trái (Đội 1)
@@ -6387,6 +6390,9 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                         if (window.keocoInterval) clearInterval(window.keocoInterval);
                     }
                 } else {
+                    // Chỉ phục vụ hoạt ảnh: đội vừa hụt lực khi trả lời sai.
+                    p.lastWrongTeam = teamNum;
+                    p.lastWrongAt = Date.now();
                     // Trả lời sai -> Đóng băng đội trong khoảng thời gian cấu hình
                     const freezeSec = parseInt(kState.settings.freezeTime) || 3;
                     team.freezeUntil = Date.now() + (freezeSec * 1000);
@@ -7022,8 +7028,25 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 };
 
                 // --- MIDDLE PANEL TUG OF WAR OR BOAT RACE ---
-                const shiftPercent = (p.ropeOffset / kState.settings.pointsToWin) * 45; 
+                // Độ dịch chuyển chỉ dùng cho hình ảnh. Giới hạn để hai đội luôn còn trong khung hình.
+                const visualWinPoints = Math.max(1, parseInt(kState.settings.pointsToWin) || 7);
+                const safeRopeRatio = Math.max(-1, Math.min(1, p.ropeOffset / visualWinPoints));
+                const shiftPercent = safeRopeRatio * 28;
                 const isBoatGame = kState.settings.gameType === 'boat';
+                const visualWinner = p.status === 'finished'
+                    ? (kState.settings.playMode === 'milestone'
+                        ? (team1.score > team2.score ? 1 : team2.score > team1.score ? 2 : 0)
+                        : (p.ropeOffset < 0 ? 1 : p.ropeOffset > 0 ? 2 : 0))
+                    : 0;
+                const tugSceneClass = p.status === 'finished'
+                    ? (visualWinner === 1 ? 'blue-win' : visualWinner === 2 ? 'red-win' : 'balanced')
+                    : (p.ropeOffset < 0 ? 'blue-leading' : p.ropeOffset > 0 ? 'red-leading' : 'balanced');
+                const recentPullClass = (Date.now() - (p.lastPullAt || 0) < 900)
+                    ? (p.lastPullTeam === 1 ? 'blue-pulse' : p.lastPullTeam === 2 ? 'red-pulse' : '')
+                    : '';
+                const recentWrongClass = (Date.now() - (p.lastWrongAt || 0) < 900)
+                    ? (p.lastWrongTeam === 1 ? 'blue-miss' : p.lastWrongTeam === 2 ? 'red-miss' : '')
+                    : '';
                 
                 let middleVisualHtml = '';
                 if (isBoatGame) {
@@ -7069,43 +7092,174 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                     `;
                 } else {
                     middleVisualHtml = `
-                        <div class="bg-gradient-to-b from-sky-50 to-white rounded-[1.5rem] relative h-full min-h-[250px] overflow-hidden flex flex-col items-center justify-center border-4 border-slate-300 shadow-inner flex-[1.5] lg:flex-none lg:w-[35%] xl:w-[40%]">
-                            <!-- Đường ranh giới giữa -->
-                            <div class="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-1 border-l-[6px] border-dashed border-emerald-500/80 z-0"></div>
-                            
-                            <!-- Vùng chứa Nhân vật & Dây -->
-                            <div class="relative w-full h-full flex items-center justify-center transition-transform duration-[800ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] z-10" style="transform: translateX(${shiftPercent}%)">
-                                <svg viewBox="0 0 1000 400" class="w-full h-auto max-h-full drop-shadow-2xl overflow-visible">
+                        <div class="keoco-chibi-stage ${tugSceneClass} ${recentPullClass} ${recentWrongClass} rounded-[1.5rem] relative h-full min-h-[250px] overflow-hidden flex flex-col items-center justify-center border-4 border-sky-200 shadow-inner flex-[1.5] lg:flex-none lg:w-[35%] xl:w-[40%] bg-gradient-to-b from-sky-200 via-sky-50 to-emerald-100">
+                            <style>
+                                .keoco-chibi-stage{isolation:isolate}
+                                .keoco-chibi-stage .cloud{animation:keocoCloud 9s ease-in-out infinite alternate}
+                                .keoco-chibi-stage .cloud.c2{animation-duration:12s;animation-delay:-3s}
+                                .keoco-chibi-stage .flag-wave{transform-box:fill-box;transform-origin:left center;animation:keocoFlag 1.1s ease-in-out infinite alternate}
+                                .keoco-chibi-stage .tug-team{transform-box:fill-box;transform-origin:center bottom;will-change:transform}
+                                .keoco-chibi-stage .tug-kid{transform-box:fill-box;transform-origin:center 82%;will-change:transform;animation:keocoKidPull .72s ease-in-out infinite alternate}
+                                .keoco-chibi-stage .tug-team-red .tug-kid{animation-name:keocoKidPullRed;animation-delay:-.18s}
+                                .keoco-chibi-stage .tug-kid:nth-child(2){animation-delay:-.24s}
+                                .keoco-chibi-stage .tug-kid:nth-child(3){animation-delay:-.42s}
+                                .keoco-chibi-stage .tug-kid:nth-child(4){animation-delay:-.58s}
+                                .keoco-chibi-stage .tug-rope{filter:drop-shadow(0 3px 2px rgba(71,45,21,.22));animation:keocoRopeTension .55s ease-in-out infinite alternate}
+                                .keoco-chibi-stage .center-knot{transform-box:fill-box;transform-origin:center;animation:keocoKnot .55s ease-in-out infinite alternate}
+                                .keoco-chibi-stage.blue-leading .tug-team-blue .tug-kid{animation-duration:.42s;animation-name:keocoKidPowerBlue}
+                                .keoco-chibi-stage.blue-leading .tug-team-red .tug-kid{animation-duration:.88s;animation-name:keocoKidStruggleRed}
+                                .keoco-chibi-stage.red-leading .tug-team-red .tug-kid{animation-duration:.42s;animation-name:keocoKidPowerRed}
+                                .keoco-chibi-stage.red-leading .tug-team-blue .tug-kid{animation-duration:.88s;animation-name:keocoKidStruggleBlue}
+                                .keoco-chibi-stage.blue-pulse .tug-team-blue{animation:keocoTeamBlueBurst .62s cubic-bezier(.2,.85,.25,1)}
+                                .keoco-chibi-stage.red-pulse .tug-team-red{animation:keocoTeamRedBurst .62s cubic-bezier(.2,.85,.25,1)}
+                                .keoco-chibi-stage.blue-miss .tug-team-blue{animation:keocoBlueSlip .6s ease}
+                                .keoco-chibi-stage.red-miss .tug-team-red{animation:keocoRedSlip .6s ease}
+                                .keoco-chibi-stage.blue-win .tug-team-blue .tug-kid{animation:keocoCelebrate .45s ease-in-out infinite alternate}
+                                .keoco-chibi-stage.blue-win .tug-team-red{animation:keocoLoseRight 1s ease both}
+                                .keoco-chibi-stage.red-win .tug-team-red .tug-kid{animation:keocoCelebrate .45s ease-in-out infinite alternate}
+                                .keoco-chibi-stage.red-win .tug-team-blue{animation:keocoLoseLeft 1s ease both}
+                                .keoco-chibi-stage.blue-win .winner-spark.blue,
+                                .keoco-chibi-stage.red-win .winner-spark.red{opacity:1;animation:keocoSpark .75s ease-in-out infinite alternate}
+                                @keyframes keocoKidPull{0%{transform:translateY(1px) rotate(-1deg)}100%{transform:translateY(-4px) rotate(-5deg)}}
+                                @keyframes keocoKidPullRed{0%{transform:translateY(1px) rotate(1deg)}100%{transform:translateY(-4px) rotate(5deg)}}
+                                @keyframes keocoKidPowerBlue{0%{transform:translate(-1px,2px) rotate(-5deg)}100%{transform:translate(-8px,-4px) rotate(-10deg)}}
+                                @keyframes keocoKidPowerRed{0%{transform:translate(1px,2px) rotate(5deg)}100%{transform:translate(8px,-4px) rotate(10deg)}}
+                                @keyframes keocoKidStruggleBlue{0%{transform:translate(3px,1px) rotate(-1deg)}100%{transform:translate(9px,-1px) rotate(3deg)}}
+                                @keyframes keocoKidStruggleRed{0%{transform:translate(-3px,1px) rotate(1deg)}100%{transform:translate(-9px,-1px) rotate(-3deg)}}
+                                @keyframes keocoTeamBlueBurst{0%{transform:translateX(0)}42%{transform:translateX(-18px)}100%{transform:translateX(0)}}
+                                @keyframes keocoTeamRedBurst{0%{transform:translateX(0)}42%{transform:translateX(18px)}100%{transform:translateX(0)}}
+                                @keyframes keocoBlueSlip{0%,100%{transform:translateX(0) rotate(0)}45%{transform:translateX(8px) rotate(2deg)}}
+                                @keyframes keocoRedSlip{0%,100%{transform:translateX(0) rotate(0)}45%{transform:translateX(-8px) rotate(-2deg)}}
+                                @keyframes keocoCelebrate{0%{transform:translateY(0) rotate(-2deg)}100%{transform:translateY(-13px) rotate(4deg)}}
+                                @keyframes keocoLoseRight{0%{transform:translate(0,0) rotate(0)}100%{transform:translate(-34px,15px) rotate(-8deg)}}
+                                @keyframes keocoLoseLeft{0%{transform:translate(0,0) rotate(0)}100%{transform:translate(34px,15px) rotate(8deg)}}
+                                @keyframes keocoRopeTension{0%{stroke-width:9}100%{stroke-width:11}}
+                                @keyframes keocoKnot{0%{transform:scale(.96)}100%{transform:scale(1.08)}}
+                                @keyframes keocoCloud{0%{transform:translateX(-10px)}100%{transform:translateX(18px)}}
+                                @keyframes keocoFlag{0%{transform:skewY(-3deg) scaleX(.96)}100%{transform:skewY(4deg) scaleX(1.04)}}
+                                @keyframes keocoSpark{0%{transform:scale(.85) rotate(-8deg);opacity:.65}100%{transform:scale(1.18) rotate(8deg);opacity:1}}
+                                @keyframes keocoEndOverlay{from{opacity:0}to{opacity:1}}
+                                @media (prefers-reduced-motion:reduce){.keoco-chibi-stage *{animation-duration:2s!important;animation-iteration-count:1!important}}
+                            </style>
+
+                            <!-- Bầu trời / sân chơi nhẹ, không ảnh hưởng gameplay -->
+                            <svg viewBox="0 0 1000 410" class="absolute inset-0 w-full h-full" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                                <defs>
+                                    <linearGradient id="keocoSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bae6fd"/><stop offset=".58" stop-color="#e0f2fe"/><stop offset="1" stop-color="#dcfce7"/></linearGradient>
+                                    <linearGradient id="keocoGrass" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#86efac"/><stop offset=".5" stop-color="#4ade80"/><stop offset="1" stop-color="#86efac"/></linearGradient>
+                                </defs>
+                                <rect width="1000" height="410" fill="url(#keocoSky)"/>
+                                <g class="cloud" fill="#fff" opacity=".82"><ellipse cx="145" cy="76" rx="58" ry="24"/><circle cx="120" cy="64" r="23"/><circle cx="158" cy="57" r="31"/></g>
+                                <g class="cloud c2" fill="#fff" opacity=".72"><ellipse cx="810" cy="93" rx="70" ry="26"/><circle cx="775" cy="78" r="26"/><circle cx="825" cy="72" r="34"/></g>
+                                <path d="M0 315 Q130 270 250 315 T510 310 T760 315 T1000 295 V410 H0Z" fill="#bbf7d0" opacity=".9"/>
+                                <rect y="330" width="1000" height="80" fill="url(#keocoGrass)"/>
+                                <path d="M0 350 H1000" stroke="#22c55e" stroke-width="5" opacity=".35"/>
+                                <g opacity=".7"><circle cx="76" cy="349" r="5" fill="#facc15"/><circle cx="118" cy="365" r="4" fill="#fb7185"/><circle cx="895" cy="351" r="5" fill="#c084fc"/><circle cx="935" cy="369" r="4" fill="#facc15"/></g>
+                                <!-- Cờ hội thao -->
+                                <path d="M40 40 Q500 4 960 40" fill="none" stroke="#64748b" stroke-width="2" opacity=".4"/>
+                                ${['#3b82f6','#f43f5e','#facc15','#22c55e','#a855f7','#fb923c','#06b6d4','#ec4899'].map((c,i)=>`<path class="flag-wave" d="M${90+i*110} ${32+(i%2)*4} l22 5 -18 22z" fill="${c}" opacity=".9"/>`).join('')}
+                            </svg>
+
+                            <!-- Vạch trung tâm cố định -->
+                            <div class="absolute top-[9%] bottom-[8%] left-1/2 -translate-x-1/2 z-[2] flex flex-col items-center pointer-events-none">
+                                <div class="h-full border-l-[5px] border-dashed border-emerald-500/75"></div>
+                                <span class="absolute top-2 -translate-y-1/2 px-3 py-1 rounded-full bg-white/90 text-emerald-700 text-[10px] font-black shadow border border-emerald-200">TRUNG TÂM</span>
+                            </div>
+
+                            <!-- Toàn bộ dây + đội dịch chuyển theo thế trận -->
+                            <div class="relative w-full h-full flex items-center justify-center transition-transform duration-[700ms] ease-[cubic-bezier(.22,1,.36,1)] z-10" style="transform:translateX(${shiftPercent}%)">
+                                <svg viewBox="0 0 1000 410" class="w-full h-full max-h-full overflow-visible" role="img" aria-label="Hai đội chibi đang kéo co">
                                     <defs>
-                                        <g id="shoe-l"><path d="M-10,5 C-15,5 -20,2 -22,-2 L-10,-10 L5,-10 C15,-10 15,5 5,5 Z" fill="#fff" stroke="#333" stroke-width="2"/></g>
-                                        <g id="shoe-r"><path d="M10,5 C15,5 20,2 22,-2 L10,-10 L-5,-10 C-15,-10 -15,5 -5,5 Z" fill="#fff" stroke="#333" stroke-width="2"/></g>
-                                        <g id="face-l"><path d="M-5,-22 C10,-25 22,-12 18,2 C14,14 2,18 -8,10 C-15,5 -15,-15 -5,-22 Z" fill="#ffd1b3" stroke="#333" stroke-width="2"/><circle cx="8" cy="-3" r="1.8" fill="#333"/><path d="M10,5 Q13,7 16,4" fill="none" stroke="#333" stroke-width="1.8"/><path d="M-6,-2 C-10,-2 -10,4 -6,4" fill="#ffd1b3" stroke="#333" stroke-width="1.5"/></g>
-                                        <g id="face-r"><path d="M5,-22 C-10,-25 -22,-12 -18,2 C-14,14 -2,18 8,10 C15,5 15,-15 5,-22 Z" fill="#ffd1b3" stroke="#333" stroke-width="2"/><circle cx="-8" cy="-3" r="1.8" fill="#333"/><path d="M-10,5 Q-13,7 -16,4" fill="none" stroke="#333" stroke-width="1.8"/><path d="M6,-2 C10,-2 10,4 6,4" fill="#ffd1b3" stroke="#333" stroke-width="1.5"/></g>
+                                        <filter id="kidShadow" x="-40%" y="-40%" width="180%" height="200%"><feDropShadow dx="0" dy="7" stdDeviation="5" flood-color="#0f172a" flood-opacity=".2"/></filter>
+                                        <filter id="ropeGlow" x="-20%" y="-80%" width="140%" height="260%"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#78350f" flood-opacity=".35"/></filter>
 
-                                        <g id="blue-boy-1"><path d="M-8,45 L-22,88" stroke="#333" stroke-width="14" stroke-linecap="round"/><path d="M-8,45 L-22,88" stroke="#3b6998" stroke-width="10" stroke-linecap="round"/><use href="#shoe-l" x="-26" y="94"/><path d="M8,45 L15,90" stroke="#333" stroke-width="14" stroke-linecap="round"/><path d="M8,45 L15,90" stroke="#3b6998" stroke-width="10" stroke-linecap="round"/><use href="#shoe-r" x="15" y="96"/><path d="M-8,15 L12,15 L8,50 L-12,45 Z" fill="#3b6998" stroke="#333" stroke-width="2"/><path d="M-6,15 L10,15 L6,25 L-8,22 Z" fill="#d93838" stroke="#333" stroke-width="1.5"/><use href="#face-l" x="0" y="0"/><path d="M-10,-2 C-15,-15 -2,-28 12,-22 C20,-18 22,-8 15,-2 Z" fill="#2c221e" stroke="#333" stroke-width="2"/><path d="M4,22 Q15,26 30,18" fill="none" stroke="#333" stroke-width="12" stroke-linecap="round"/><path d="M4,22 Q15,26 30,18" fill="none" stroke="#3b6998" stroke-width="8" stroke-linecap="round"/><circle cx="30" cy="18" r="6" fill="#ffd1b3" stroke="#333" stroke-width="1.5"/></g>
-                                        <g id="blue-girl"><path d="M-6,45 L-18,88" stroke="#333" stroke-width="10" stroke-linecap="round"/><path d="M-6,45 L-18,88" stroke="#ffd1b3" stroke-width="7" stroke-linecap="round"/><use href="#shoe-l" x="-22" y="94"/><path d="M8,45 L14,90" stroke="#333" stroke-width="10" stroke-linecap="round"/><path d="M8,45 L14,90" stroke="#ffd1b3" stroke-width="7" stroke-linecap="round"/><use href="#shoe-r" x="14" y="96"/><path d="M-12,42 L14,40 L22,72 L-18,75 Z" fill="#2b5278" stroke="#333" stroke-width="2"/><path d="M-6,15 L10,15 L8,42 L-8,40 Z" fill="#3b6998" stroke="#333" stroke-width="2"/><path d="M-6,15 L10,15 L6,25 L-8,22 Z" fill="#d93838" stroke="#333" stroke-width="1.5"/><use href="#face-l" x="0" y="0"/><path d="M-12,-8 C-30,-2 -32,18 -20,25 Z" fill="#2c221e" stroke="#333" stroke-width="2"/><path d="M-10,-4 C-15,-18 -5,-28 10,-24 Z" fill="#2c221e" stroke="#333" stroke-width="2"/><path d="M4,22 Q15,26 30,18" fill="none" stroke="#333" stroke-width="10" stroke-linecap="round"/><path d="M4,22 Q15,26 30,18" fill="none" stroke="#3b6998" stroke-width="6" stroke-linecap="round"/><circle cx="30" cy="18" r="5.5" fill="#ffd1b3" stroke="#333" stroke-width="1.5"/></g>
-                                        <g id="blue-boy-2"><path d="M-8,45 L-20,88" stroke="#333" stroke-width="14" stroke-linecap="round"/><path d="M-8,45 L-20,88" stroke="#3b6998" stroke-width="10" stroke-linecap="round"/><use href="#shoe-l" x="-24" y="94"/><path d="M8,45 L15,90" stroke="#333" stroke-width="14" stroke-linecap="round"/><path d="M8,45 L15,90" stroke="#3b6998" stroke-width="10" stroke-linecap="round"/><use href="#shoe-r" x="15" y="96"/><path d="M-8,15 L12,15 L8,50 L-12,45 Z" fill="#3b6998" stroke="#333" stroke-width="2"/><path d="M-6,15 L10,15 L6,25 L-8,22 Z" fill="#d93838" stroke="#333" stroke-width="1.5"/><use href="#face-l" x="0" y="0"/><path d="M-10,-2 C-15,-15 -2,-28 12,-22 Z" fill="#2c221e" stroke="#333" stroke-width="2"/><path d="M4,22 Q15,26 30,18" fill="none" stroke="#333" stroke-width="12" stroke-linecap="round"/><path d="M4,22 Q15,26 30,18" fill="none" stroke="#3b6998" stroke-width="8" stroke-linecap="round"/><circle cx="30" cy="18" r="6" fill="#ffd1b3" stroke="#333" stroke-width="1.5"/></g>
+                                        <!-- Nhân vật chibi xanh: mặt phải, tay bám dây -->
+                                        <g id="kidBlue" filter="url(#kidShadow)">
+                                            <ellipse cx="0" cy="73" rx="31" ry="9" fill="#0f172a" opacity=".16"/>
+                                            <path d="M-16 44 L-26 72 M12 44 L23 72" stroke="#1e3a8a" stroke-width="12" stroke-linecap="round"/>
+                                            <path d="M-31 72 q13 7 25 0" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+                                            <path d="M17 72 q13 7 25 0" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+                                            <path d="M-24 4 Q0 -10 26 5 L19 48 Q-2 61 -26 45Z" fill="#3b82f6" stroke="#1e3a8a" stroke-width="3"/>
+                                            <path d="M-4 11 L16 35" stroke="#bfdbfe" stroke-width="5" opacity=".9"/>
+                                            <circle cx="0" cy="-21" r="33" fill="#ffd6b0" stroke="#854d0e" stroke-width="2.5"/>
+                                            <path d="M-30 -28 Q-14 -61 17 -52 Q34 -48 31 -21 Q12 -38 -25 -25Z" fill="#334155"/>
+                                            <circle cx="10" cy="-24" r="3.5" fill="#0f172a"/><circle cx="-7" cy="-24" r="3.5" fill="#0f172a"/>
+                                            <path d="M-5 -8 Q5 1 16 -10" fill="none" stroke="#9a3412" stroke-width="3" stroke-linecap="round"/>
+                                            <circle cx="-18" cy="-12" r="5" fill="#fb7185" opacity=".35"/><circle cx="21" cy="-12" r="5" fill="#fb7185" opacity=".35"/>
+                                            <path d="M18 12 Q35 20 46 30" fill="none" stroke="#1e3a8a" stroke-width="12" stroke-linecap="round"/>
+                                            <path d="M18 12 Q35 20 46 30" fill="none" stroke="#ffd6b0" stroke-width="7" stroke-linecap="round"/>
+                                            <circle cx="47" cy="30" r="7" fill="#ffd6b0" stroke="#854d0e" stroke-width="1.5"/>
+                                            <path d="M6 16 Q26 27 38 36" fill="none" stroke="#1e3a8a" stroke-width="11" stroke-linecap="round" opacity=".95"/>
+                                            <path d="M6 16 Q26 27 38 36" fill="none" stroke="#ffd6b0" stroke-width="6" stroke-linecap="round"/>
+                                        </g>
 
-                                        <g id="red-boy-1"><path d="M8,45 L22,88" stroke="#333" stroke-width="14" stroke-linecap="round"/><path d="M8,45 L22,88" stroke="#bc3232" stroke-width="10" stroke-linecap="round"/><use href="#shoe-r" x="26" y="94"/><path d="M-8,45 L-15,90" stroke="#333" stroke-width="14" stroke-linecap="round"/><path d="M-8,45 L-15,90" stroke="#bc3232" stroke-width="10" stroke-linecap="round"/><use href="#shoe-l" x="-15" y="96"/><path d="M8,15 L-12,15 L-8,50 L12,45 Z" fill="#bc3232" stroke="#333" stroke-width="2"/><path d="M6,15 L-10,15 L-6,25 L8,22 Z" fill="#2b5278" stroke="#333" stroke-width="1.5"/><use href="#face-r" x="0" y="0"/><path d="M10,-2 C15,-15 2,-28 -12,-22 Z" fill="#2c221e" stroke="#333" stroke-width="2"/><path d="M-4,22 Q-15,26 -30,18" fill="none" stroke="#333" stroke-width="12" stroke-linecap="round"/><path d="M-4,22 Q-15,26 -30,18" fill="none" stroke="#bc3232" stroke-width="8" stroke-linecap="round"/><circle cx="-30" cy="18" r="6" fill="#ffd1b3" stroke="#333" stroke-width="1.5"/></g>
-                                        <g id="red-girl"><path d="M6,45 L18,88" stroke="#333" stroke-width="10" stroke-linecap="round"/><path d="M6,45 L18,88" stroke="#ffd1b3" stroke-width="7" stroke-linecap="round"/><use href="#shoe-r" x="22" y="94"/><path d="M-8,45 L-14,90" stroke="#333" stroke-width="10" stroke-linecap="round"/><path d="M-8,45 L-14,90" stroke="#ffd1b3" stroke-width="7" stroke-linecap="round"/><use href="#shoe-l" x="-14" y="96"/><path d="M12,42 L-14,40 L-22,72 L18,75 Z" fill="#9e2626" stroke="#333" stroke-width="2"/><path d="M6,15 L-10,15 L-8,42 L8,40 Z" fill="#bc3232" stroke="#333" stroke-width="2"/><path d="M6,15 L-10,15 L-6,25 L8,22 Z" fill="#2b5278" stroke="#333" stroke-width="1.5"/><use href="#face-r" x="0" y="0"/><path d="M12,-8 C30,-2 32,18 20,25 Z" fill="#2c221e" stroke="#333" stroke-width="2"/><path d="M10,-4 C15,-18 5,-28 -10,-24 Z" fill="#2c221e" stroke="#333" stroke-width="2"/><path d="M-4,22 Q-15,26 -30,18" fill="none" stroke="#333" stroke-width="10" stroke-linecap="round"/><path d="M-4,22 Q-15,26 -30,18" fill="none" stroke="#bc3232" stroke-width="6" stroke-linecap="round"/><circle cx="-30" cy="18" r="5.5" fill="#ffd1b3" stroke="#333" stroke-width="1.5"/></g>
-                                        <g id="red-boy-2"><path d="M8,45 L20,88" stroke="#333" stroke-width="14" stroke-linecap="round"/><path d="M8,45 L20,88" stroke="#bc3232" stroke-width="10" stroke-linecap="round"/><use href="#shoe-r" x="24" y="94"/><path d="M-8,45 L-15,90" stroke="#333" stroke-width="14" stroke-linecap="round"/><path d="M-8,45 L-15,90" stroke="#bc3232" stroke-width="10" stroke-linecap="round"/><use href="#shoe-l" x="-15" y="96"/><path d="M8,15 L-12,15 L-8,50 L12,45 Z" fill="#bc3232" stroke="#333" stroke-width="2"/><path d="M6,15 L-10,15 L-6,25 L8,22 Z" fill="#2b5278" stroke="#333" stroke-width="1.5"/><use href="#face-r" x="0" y="0"/><path d="M10,-2 C15,-15 2,-28 -12,-22 Z" fill="#2c221e" stroke="#333" stroke-width="2"/><path d="M-4,22 Q-15,26 -30,18" fill="none" stroke="#333" stroke-width="12" stroke-linecap="round"/><path d="M-4,22 Q-15,26 -30,18" fill="none" stroke="#bc3232" stroke-width="8" stroke-linecap="round"/><circle cx="-30" cy="18" r="6" fill="#ffd1b3" stroke="#333" stroke-width="1.5"/></g>
+                                        <!-- Nhân vật chibi đỏ: mặt trái -->
+                                        <g id="kidRed" filter="url(#kidShadow)">
+                                            <ellipse cx="0" cy="73" rx="31" ry="9" fill="#0f172a" opacity=".16"/>
+                                            <path d="M16 44 L26 72 M-12 44 L-23 72" stroke="#991b1b" stroke-width="12" stroke-linecap="round"/>
+                                            <path d="M6 72 q-13 7 -25 0" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+                                            <path d="M-17 72 q-13 7 -25 0" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+                                            <path d="M24 4 Q0 -10 -26 5 L-19 48 Q2 61 26 45Z" fill="#f43f5e" stroke="#9f1239" stroke-width="3"/>
+                                            <path d="M4 11 L-16 35" stroke="#fecdd3" stroke-width="5" opacity=".9"/>
+                                            <circle cx="0" cy="-21" r="33" fill="#ffd6b0" stroke="#854d0e" stroke-width="2.5"/>
+                                            <path d="M30 -28 Q14 -61 -17 -52 Q-34 -48 -31 -21 Q-12 -38 25 -25Z" fill="#4c1d1d"/>
+                                            <circle cx="-10" cy="-24" r="3.5" fill="#0f172a"/><circle cx="7" cy="-24" r="3.5" fill="#0f172a"/>
+                                            <path d="M5 -8 Q-5 1 -16 -10" fill="none" stroke="#9a3412" stroke-width="3" stroke-linecap="round"/>
+                                            <circle cx="18" cy="-12" r="5" fill="#fb7185" opacity=".35"/><circle cx="-21" cy="-12" r="5" fill="#fb7185" opacity=".35"/>
+                                            <path d="M-18 12 Q-35 20 -46 30" fill="none" stroke="#9f1239" stroke-width="12" stroke-linecap="round"/>
+                                            <path d="M-18 12 Q-35 20 -46 30" fill="none" stroke="#ffd6b0" stroke-width="7" stroke-linecap="round"/>
+                                            <circle cx="-47" cy="30" r="7" fill="#ffd6b0" stroke="#854d0e" stroke-width="1.5"/>
+                                            <path d="M-6 16 Q-26 27 -38 36" fill="none" stroke="#9f1239" stroke-width="11" stroke-linecap="round" opacity=".95"/>
+                                            <path d="M-6 16 Q-26 27 -38 36" fill="none" stroke="#ffd6b0" stroke-width="6" stroke-linecap="round"/>
+                                        </g>
                                     </defs>
 
-                                    <line x1="50" y1="195" x2="950" y2="195" stroke="#333" stroke-width="7" stroke-linecap="round"/>
-                                    <g transform="translate(500, 195)">
-                                        <path d="M -30 -20 L 0 0 L -30 20 Z" fill="#e53935" stroke="#333" stroke-width="2"/>
-                                        <path d="M 30 -20 L 0 0 L 30 20 Z" fill="#e53935" stroke="#333" stroke-width="2"/>
-                                        <circle cx="0" cy="0" r="9" fill="#c62828" stroke="#333" stroke-width="2"/>
+                                    <!-- Tên đội -->
+                                    <g font-family="Inter,Arial,sans-serif" font-weight="900" font-size="23" text-anchor="middle">
+                                        <rect x="83" y="38" rx="18" width="250" height="44" fill="#dbeafe" stroke="#60a5fa" stroke-width="2"/>
+                                        <text x="208" y="67" fill="#1d4ed8">${escapeHtmlAttr(kState.settings.team1Name)}</text>
+                                        <rect x="667" y="38" rx="18" width="250" height="44" fill="#ffe4e6" stroke="#fb7185" stroke-width="2"/>
+                                        <text x="792" y="67" fill="#be123c">${escapeHtmlAttr(kState.settings.team2Name)}</text>
                                     </g>
 
-                                    <g transform="translate(190, 175)"><use href="#blue-boy-1" x="0" y="0"/></g>
-                                    <g transform="translate(290, 175)"><use href="#blue-girl" x="0" y="0"/></g>
-                                    <g transform="translate(390, 175)"><use href="#blue-boy-2" x="0" y="0"/></g>
+                                    <!-- Dây kéo căng xuyên suốt -->
+                                    <path class="tug-rope" d="M58 238 C250 234 380 242 500 238 C620 234 750 242 942 238" fill="none" stroke="#8b5a2b" stroke-width="10" stroke-linecap="round" filter="url(#ropeGlow)"/>
+                                    <path d="M58 235 C250 231 380 239 500 235 C620 231 750 239 942 235" fill="none" stroke="#d6a85f" stroke-width="3" stroke-linecap="round" opacity=".85"/>
 
-                                    <g transform="translate(610, 175)"><use href="#red-boy-1" x="0" y="0"/></g>
-                                    <g transform="translate(710, 175)"><use href="#red-girl" x="0" y="0"/></g>
-                                    <g transform="translate(810, 175)"><use href="#red-boy-2" x="0" y="0"/></g>
+                                    <!-- Đội Xanh: nhiều thành viên đứng thành hàng -->
+                                    <g class="tug-team tug-team-blue">
+                                        <g transform="translate(135 210)"><g class="tug-kid"><use href="#kidBlue"/></g></g>
+                                        <g transform="translate(225 207)"><g class="tug-kid"><use href="#kidBlue"/></g></g>
+                                        <g transform="translate(315 211)"><g class="tug-kid"><use href="#kidBlue"/></g></g>
+                                        <g transform="translate(402 208)"><g class="tug-kid"><use href="#kidBlue"/></g></g>
+                                    </g>
+
+                                    <!-- Đội Đỏ -->
+                                    <g class="tug-team tug-team-red">
+                                        <g transform="translate(598 208)"><g class="tug-kid"><use href="#kidRed"/></g></g>
+                                        <g transform="translate(685 211)"><g class="tug-kid"><use href="#kidRed"/></g></g>
+                                        <g transform="translate(775 207)"><g class="tug-kid"><use href="#kidRed"/></g></g>
+                                        <g transform="translate(865 210)"><g class="tug-kid"><use href="#kidRed"/></g></g>
+                                    </g>
+
+                                    <!-- Nút giữa dây -->
+                                    <g class="center-knot" transform="translate(500 238)">
+                                        <circle r="13" fill="#b45309" stroke="#78350f" stroke-width="3"/>
+                                        <path d="M-3 11 L-22 45 L0 35 L20 47 L4 10Z" fill="#f43f5e" stroke="#9f1239" stroke-width="2"/>
+                                        <circle r="5" fill="#fde68a"/>
+                                    </g>
+
+                                    <!-- Tia vui mừng chỉ hiện khi thắng -->
+                                    <g class="winner-spark blue" opacity="0" fill="#facc15"><path d="M110 105 l7 18 19 2-15 12 5 19-16-10-16 10 5-19-15-12 19-2z"/><path d="M365 102 l5 13 14 1-11 9 4 13-12-7-12 7 4-13-11-9 14-1z"/></g>
+                                    <g class="winner-spark red" opacity="0" fill="#facc15"><path d="M890 105 l7 18 19 2-15 12 5 19-16-10-16 10 5-19-15-12 19-2z"/><path d="M635 102 l5 13 14 1-11 9 4 13-12-7-12 7 4-13-11-9 14-1z"/></g>
+
+                                    <!-- Bụi chân vui nhộn -->
+                                    <g fill="#fff" opacity=".6"><circle cx="120" cy="305" r="10"/><circle cx="145" cy="310" r="6"/><circle cx="880" cy="305" r="10"/><circle cx="855" cy="310" r="6"/></g>
                                 </svg>
+                            </div>
+
+                            <div class="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-full bg-white/85 border border-white shadow text-[10px] md:text-xs font-black text-slate-600 whitespace-nowrap">
+                                ${p.status === 'finished' ? (visualWinner === 1 ? `🎉 ${escapeHtmlAttr(kState.settings.team1Name)} chiến thắng!` : visualWinner === 2 ? `🎉 ${escapeHtmlAttr(kState.settings.team2Name)} chiến thắng!` : '🤝 Hai đội hòa nhau!') : (p.ropeOffset === 0 ? '💪 Hai đội đang giằng co cân bằng!' : p.ropeOffset < 0 ? `🔵 ${escapeHtmlAttr(kState.settings.team1Name)} đang chiếm ưu thế` : `🔴 ${escapeHtmlAttr(kState.settings.team2Name)} đang chiếm ưu thế`)}
                             </div>
                         </div>
                     `;
@@ -7123,7 +7277,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                         </div>
                         
                         ${p.status === 'finished' ? `
-                            <div class="absolute inset-0 bg-[#0f172a]/95 z-50 flex items-center justify-center backdrop-blur-md animate-fade-in">
+                            <div class="absolute inset-0 bg-[#0f172a]/95 z-50 flex items-center justify-center backdrop-blur-md" style="${!isBoatGame ? 'opacity:0;animation:keocoEndOverlay .42s ease 1.15s forwards' : ''}">
                                 <div class="bg-white rounded-[2rem] p-8 md:p-12 flex flex-col items-center text-center w-11/12 max-w-lg shadow-[0_20px_60px_rgba(0,0,0,0.5)] border-4 border-yellow-400">
                                     <i class="ph-fill ph-trophy text-7xl md:text-8xl text-yellow-500 mb-6 animate-bounce drop-shadow-xl"></i>
                                     <h2 class="text-3xl md:text-5xl font-black text-slate-800 mb-4 tracking-tight">TRÒ CHƠI KẾT THÚC!</h2>
