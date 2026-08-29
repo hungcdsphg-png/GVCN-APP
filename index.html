@@ -1259,107 +1259,62 @@
 
 <style id="mine-expert-game-styles">
 /* =============================================================
-   🧨 CHUYÊN GIA GỠ MÌN - NÂNG CẤP GIAO DIỆN 3D
-   Chỉ nâng cấp hình ảnh / bố cục hiển thị trong game.
+   🧨 CHUYÊN GIA GỠ MÌN - HÀNH TRÌNH 3D + BONG BÓNG NƯỚC
+   Chỉ áp dụng trong game; không ảnh hưởng dữ liệu/cấu hình app.
    ============================================================= */
 .mine-expert-shell{font-family:Inter,system-ui,sans-serif;background:
- radial-gradient(circle at 14% 12%,rgba(190,242,100,.16),transparent 24%),
- radial-gradient(circle at 85% 15%,rgba(125,211,252,.18),transparent 26%),
- linear-gradient(180deg,#183222 0%,#10271a 54%,#0a180f 100%);color:#fff;min-height:100%;}
+ radial-gradient(circle at 14% 10%,rgba(190,242,100,.15),transparent 24%),
+ radial-gradient(circle at 86% 14%,rgba(125,211,252,.18),transparent 26%),
+ linear-gradient(180deg,#173421 0%,#102719 55%,#09180f 100%);color:#fff;min-height:100%}
 .mine-expert-map{position:relative;overflow:hidden;isolation:isolate;background:
- radial-gradient(ellipse at 50% -8%,rgba(255,255,255,.92) 0%,rgba(255,255,255,.14) 22%,transparent 48%),
- linear-gradient(180deg,#c9f3ff 0 18%,#8ee1f4 18% 22%,#8dd56d 22% 36%,#67b050 36% 70%,#4c8d3d 70% 100%);
- box-shadow:inset 0 1px rgba(255,255,255,.55),inset 0 -18px 40px rgba(9,54,17,.32),0 25px 65px rgba(0,0,0,.25)}
-.mine-expert-map:before{content:"";position:absolute;inset:16% 4% 6% 4%;z-index:-2;border-radius:32px;background:
- repeating-linear-gradient(135deg,rgba(255,255,255,.055) 0 22px,rgba(255,255,255,.01) 22px 44px),
- linear-gradient(180deg,rgba(255,255,255,.10),rgba(0,0,0,.08));transform:perspective(900px) rotateX(38deg);transform-origin:center top;opacity:.85;pointer-events:none;}
-.mine-expert-map:after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:
- radial-gradient(circle at 18% 24%,rgba(255,255,255,.16),transparent 18%),
- radial-gradient(circle at 78% 22%,rgba(255,255,255,.14),transparent 16%),
- linear-gradient(to bottom,transparent 0 72%,rgba(12,48,21,.34) 100%)}
-.mine-expert-map .mine-map-grid{position:absolute;inset:22% 4% 8%;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:62px 62px;border-radius:30px;transform:perspective(900px) rotateX(38deg);transform-origin:center top;opacity:.35;filter:drop-shadow(0 16px 12px rgba(0,0,0,.12))}
+ radial-gradient(ellipse at 50% -8%,rgba(255,255,255,.94) 0%,rgba(255,255,255,.14) 22%,transparent 48%),
+ linear-gradient(180deg,#cff6ff 0 17%,#94e1ef 17% 22%,#91d771 22% 37%,#69b653 37% 71%,#4b8c3c 71% 100%);
+ background-position:center 0;box-shadow:inset 0 1px rgba(255,255,255,.6),inset 0 -18px 45px rgba(9,54,17,.34),0 25px 65px rgba(0,0,0,.25)}
+.mine-expert-map.scrolling{animation:mineMapBackgroundScroll .78s cubic-bezier(.32,.68,.2,1) both}
+.mine-expert-map:before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:
+ radial-gradient(circle at 18% 22%,rgba(255,255,255,.16),transparent 18%),
+ radial-gradient(circle at 80% 20%,rgba(255,255,255,.13),transparent 16%),
+ linear-gradient(to bottom,transparent 0 73%,rgba(12,48,21,.32) 100%)}
+.mine-map-world{position:absolute;inset:0;z-index:2;transform:translateY(0);will-change:transform}
+.mine-map-world.scrolling{animation:mineWorldScrollDown .78s cubic-bezier(.32,.68,.2,1) both}
+.mine-map-grid{position:absolute;inset:20% 4% 6%;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(255,255,255,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.055) 1px,transparent 1px);background-size:62px 62px;border-radius:30px;transform:perspective(900px) rotateX(38deg);transform-origin:center top;opacity:.30;filter:drop-shadow(0 16px 12px rgba(0,0,0,.10))}
 .mine-map-prop{position:absolute;pointer-events:none;z-index:3;filter:drop-shadow(0 10px 10px rgba(0,0,0,.20))}
 .mine-map-prop.bush{width:54px;height:34px;border-radius:50% 50% 45% 45%;background:radial-gradient(circle at 35% 30%,#d9f99d 0 16%,#84cc16 22%,#4d7c0f 72%,#365314 100%)}
-.mine-map-prop.bush:before,.mine-map-prop.bush:after{content:"";position:absolute;bottom:8px;width:26px;height:22px;border-radius:50%;background:inherit}
-.mine-map-prop.bush:before{left:-7px}.mine-map-prop.bush:after{right:-7px}
+.mine-map-prop.bush:before,.mine-map-prop.bush:after{content:"";position:absolute;bottom:8px;width:26px;height:22px;border-radius:50%;background:inherit}.mine-map-prop.bush:before{left:-7px}.mine-map-prop.bush:after{right:-7px}
 .mine-map-prop.rock{width:40px;height:28px;border-radius:54% 46% 42% 58%/60% 50% 50% 40%;background:linear-gradient(145deg,#d1d5db,#94a3b8 48%,#64748b 100%);box-shadow:inset 0 6px 10px rgba(255,255,255,.34),inset -8px -10px 14px rgba(0,0,0,.18)}
-.mine-map-prop.crater{width:52px;height:24px;border-radius:50%;background:radial-gradient(ellipse at 50% 40%,rgba(17,24,39,.12) 0 22%,rgba(0,0,0,.42) 40%,rgba(0,0,0,.18) 68%,transparent 74%);opacity:.75}
-.mine-map-prop.flower{width:22px;height:22px}
-.mine-map-prop.flower:before,.mine-map-prop.flower:after{content:"";position:absolute;border-radius:50%}
-.mine-map-prop.flower:before{inset:2px;background:radial-gradient(circle,#fef08a 0 22%,#f472b6 26% 48%,#fb7185 52% 74%,transparent 76%)}
-.mine-map-prop.flower:after{left:8px;bottom:-8px;width:6px;height:14px;background:#15803d;border-radius:999px}
-.mine-map-prop.mine-sign{width:68px;height:60px}
-.mine-map-prop.mine-sign:before{content:"";position:absolute;left:30px;bottom:0;width:8px;height:28px;background:linear-gradient(180deg,#b45309,#78350f);border-radius:8px;box-shadow:0 4px 4px rgba(0,0,0,.25)}
-.mine-map-prop.mine-sign:after{content:"!";position:absolute;left:12px;top:6px;width:44px;height:34px;border-radius:14px;background:linear-gradient(145deg,#fef08a,#f59e0b);color:#7c2d12;font-weight:1000;font-size:24px;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.65);box-shadow:inset 0 1px rgba(255,255,255,.8),0 8px 18px rgba(0,0,0,.18)}
-.mine-answer-node{position:absolute;transform:translate(-50%,-50%);width:min(24%,178px);min-width:118px;min-height:62px;border:1.8px solid rgba(255,255,255,.46);background:linear-gradient(160deg,rgba(255,255,255,.86),rgba(240,253,244,.78) 32%,rgba(206,250,221,.74) 100%);box-shadow:0 16px 24px rgba(0,0,0,.20),inset 0 1px rgba(255,255,255,.88),0 0 0 4px rgba(255,255,255,.05);backdrop-filter:blur(8px);border-radius:20px;padding:8px 10px;color:#16301c;text-align:left;transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease,background .22s ease;z-index:12;cursor:pointer;display:flex;gap:8px;align-items:center}
-.mine-answer-node:hover:not(:disabled){transform:translate(-50%,-50%) scale(1.035);border-color:#fde047;box-shadow:0 0 0 5px rgba(253,224,71,.18),0 18px 28px rgba(0,0,0,.24)}
-.mine-answer-node:disabled{cursor:default}
-.mine-answer-node .mine-letter{width:34px;height:34px;min-width:34px;border-radius:12px;background:linear-gradient(145deg,#fef08a,#f59e0b);color:#713f12;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:1000;box-shadow:inset 0 1px rgba(255,255,255,.82),0 4px 10px rgba(0,0,0,.16)}
-.mine-answer-node .mine-answer-text{font-size:clamp(12px,1.05vw,16px);font-weight:900;line-height:1.16;overflow-wrap:anywhere;text-shadow:0 1px rgba(255,255,255,.35)}
-.mine-answer-node.selected{border-color:#facc15;background:linear-gradient(160deg,rgba(254,240,138,.94),rgba(253,224,71,.88));box-shadow:0 0 0 6px rgba(250,204,21,.16),0 16px 28px rgba(0,0,0,.26)}
-.mine-answer-node.correct{border-color:#22c55e;background:linear-gradient(160deg,rgba(220,252,231,.96),rgba(134,239,172,.88));box-shadow:0 0 0 6px rgba(34,197,94,.18),0 0 34px rgba(74,222,128,.18)}
-.mine-answer-node.wrong{border-color:#fb7185;background:linear-gradient(160deg,rgba(255,228,230,.98),rgba(254,205,211,.92));animation:mineWrongShake .5s ease both}
-.mine-expert-character{position:absolute;width:96px;height:122px;transform:translate(-50%,-74%);z-index:30;transition:left .82s cubic-bezier(.22,.72,.23,1),top .82s cubic-bezier(.22,.72,.23,1);filter:drop-shadow(0 16px 14px rgba(0,0,0,.28));pointer-events:none}
+.mine-map-prop.crater{width:52px;height:24px;border-radius:50%;background:radial-gradient(ellipse at 50% 40%,rgba(17,24,39,.12) 0 22%,rgba(0,0,0,.40) 40%,rgba(0,0,0,.18) 68%,transparent 74%);opacity:.72}
+.mine-map-prop.flower{width:22px;height:22px}.mine-map-prop.flower:before,.mine-map-prop.flower:after{content:"";position:absolute;border-radius:50%}.mine-map-prop.flower:before{inset:2px;background:radial-gradient(circle,#fef08a 0 22%,#f472b6 26% 48%,#fb7185 52% 74%,transparent 76%)}.mine-map-prop.flower:after{left:8px;bottom:-8px;width:6px;height:14px;background:#15803d;border-radius:999px}
+.mine-map-prop.tree{width:68px;height:96px}.mine-map-prop.tree:before{content:"";position:absolute;left:29px;bottom:0;width:12px;height:48px;border-radius:8px;background:linear-gradient(90deg,#78350f,#b45309 48%,#78350f);box-shadow:inset 2px 0 rgba(255,255,255,.16)}.mine-map-prop.tree:after{content:"";position:absolute;left:4px;top:0;width:62px;height:58px;border-radius:50% 55% 45% 58%;background:radial-gradient(circle at 35% 25%,#d9f99d 0 9%,#84cc16 18%,#4d7c0f 64%,#365314 100%);box-shadow:inset 0 5px 9px rgba(255,255,255,.24)}
+.mine-map-prop.mine-sign{width:68px;height:60px}.mine-map-prop.mine-sign:before{content:"";position:absolute;left:30px;bottom:0;width:8px;height:28px;background:linear-gradient(180deg,#b45309,#78350f);border-radius:8px;box-shadow:0 4px 4px rgba(0,0,0,.25)}.mine-map-prop.mine-sign:after{content:"!";position:absolute;left:12px;top:6px;width:44px;height:34px;border-radius:14px;background:linear-gradient(145deg,#fef08a,#f59e0b);color:#7c2d12;font-weight:1000;font-size:24px;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.65);box-shadow:inset 0 1px rgba(255,255,255,.8),0 8px 18px rgba(0,0,0,.18)}
+/* Bong bóng nước: vùng bấm đủ rộng, phần nhìn thấy nhỏ gọn */
+.mine-answer-node{position:absolute;transform:translate(-50%,-50%);width:150px;min-height:102px;padding:4px 5px;border:0;background:transparent;color:#fff;text-align:center;z-index:14;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;transition:filter .18s ease,transform .18s ease;filter:drop-shadow(0 9px 9px rgba(0,0,0,.18))}
+.mine-answer-node:hover:not(:disabled){transform:translate(-50%,-50%) scale(1.055);filter:drop-shadow(0 12px 12px rgba(0,0,0,.22))}.mine-answer-node:disabled{cursor:default}
+.mine-water-bubble{position:relative;width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(255,255,255,.72);background:radial-gradient(circle at 32% 24%,rgba(255,255,255,.92) 0 7%,rgba(255,255,255,.35) 9% 18%,rgba(165,243,252,.24) 34%,rgba(56,189,248,.16) 68%,rgba(14,116,144,.24) 100%);box-shadow:inset -9px -12px 18px rgba(14,116,144,.16),inset 8px 8px 14px rgba(255,255,255,.25),0 8px 15px rgba(0,75,105,.18),0 0 0 3px rgba(255,255,255,.07);backdrop-filter:blur(3px);animation:mineBubbleFloat 2.8s ease-in-out infinite alternate}
+.mine-water-bubble:before{content:"";position:absolute;width:17px;height:9px;border-radius:50%;left:13px;top:10px;background:rgba(255,255,255,.76);transform:rotate(-28deg);filter:blur(.2px)}
+.mine-water-bubble:after{content:"";position:absolute;width:8px;height:8px;border-radius:50%;right:10px;bottom:13px;background:rgba(255,255,255,.36)}
+.mine-bubble-letter{font-size:19px;font-weight:1000;color:#075985;text-shadow:0 1px 0 rgba(255,255,255,.9),0 2px 8px rgba(255,255,255,.75)}
+.mine-answer-caption{max-width:148px;margin-top:5px;padding:4px 7px;border-radius:10px;background:rgba(6,52,31,.63);border:1px solid rgba(255,255,255,.18);box-shadow:0 7px 12px rgba(0,0,0,.15);backdrop-filter:blur(4px);font-size:clamp(11px,.95vw,14px);font-weight:900;line-height:1.12;color:#fff;overflow-wrap:anywhere;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+.mine-answer-node.selected .mine-water-bubble{box-shadow:inset -9px -12px 18px rgba(14,116,144,.18),inset 8px 8px 14px rgba(255,255,255,.30),0 0 0 5px rgba(253,224,71,.30),0 0 24px rgba(253,224,71,.44)}
+.mine-answer-node.correct .mine-water-bubble{border-color:#86efac;box-shadow:inset 0 0 24px rgba(34,197,94,.16),0 0 0 6px rgba(74,222,128,.22),0 0 28px rgba(74,222,128,.42)}
+.mine-answer-node.correct .mine-answer-caption{background:rgba(6,78,59,.76);border-color:rgba(134,239,172,.42)}
+.mine-answer-node.wrong{animation:mineWrongShake .5s ease both}.mine-answer-node.wrong .mine-water-bubble{border-color:#fda4af;box-shadow:inset 0 0 24px rgba(244,63,94,.15),0 0 0 6px rgba(251,113,133,.22),0 0 28px rgba(251,113,133,.35)}
+.mine-expert-character{position:absolute;width:96px;height:122px;transform:translate(-50%,-74%);z-index:30;transition:left .82s cubic-bezier(.22,.72,.23,1),top .82s cubic-bezier(.22,.72,.23,1);filter:drop-shadow(0 16px 14px rgba(0,0,0,.28));pointer-events:none;will-change:left,top}
 .mine-expert-character:after{content:"";position:absolute;left:50%;bottom:0;width:58px;height:14px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse at center,rgba(0,0,0,.34),transparent 70%);z-index:-1}
-.mine-expert-character.moving .mine-expert-soldier{animation:mineRunBob .18s linear infinite alternate}
-.mine-expert-character.moving .mine-arm-left{transform-origin:44px 66px;animation:mineArm .26s ease-in-out infinite alternate}
-.mine-expert-character.moving .mine-arm-right{transform-origin:76px 66px;animation:mineArm .26s ease-in-out infinite alternate-reverse}
-.mine-expert-character.moving .mine-leg-left{transform-origin:52px 97px;animation:mineLeg .24s ease-in-out infinite alternate}
-.mine-expert-character.moving .mine-leg-right{transform-origin:70px 97px;animation:mineLeg .24s ease-in-out infinite alternate-reverse}
-.mine-safe-ring{position:absolute;width:118px;height:118px;border:4px solid #4ade80;border-radius:50%;transform:translate(-50%,-50%);z-index:24;pointer-events:none;animation:mineSafePulse 1.05s ease-out both;box-shadow:0 0 30px rgba(74,222,128,.55)}
-.mine-safe-ring:after{content:"✓ AN TOÀN";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:13px;font-weight:1000;color:#dcfce7;white-space:nowrap;text-shadow:0 2px 5px #052e16}
-.mine-explosion{position:absolute;width:160px;height:160px;transform:translate(-50%,-50%);z-index:45;pointer-events:none;animation:mineExplosionFade .9s ease-out both}
-.mine-explosion .blast{position:absolute;inset:25%;border-radius:50%;background:radial-gradient(circle,#fff 0 8%,#fde047 12% 28%,#fb923c 30% 52%,#ef4444 54% 68%,transparent 70%);filter:drop-shadow(0 0 18px #fb923c);animation:mineBlast .62s cubic-bezier(.2,.7,.2,1) both}
-.mine-explosion .smoke{position:absolute;left:50%;top:48%;width:72px;height:72px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#94a3b8,#334155 68%,transparent 72%);opacity:.78;animation:mineSmoke .95s ease-out both}
-.mine-expert-map.exploding{animation:mineMapShake .5s ease-in-out both}
-.mine-marker{position:absolute;width:26px;height:26px;border-radius:999px;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),rgba(255,255,255,.08) 62%,transparent 68%);box-shadow:inset 0 1px rgba(255,255,255,.32),0 8px 16px rgba(0,0,0,.16);display:flex;align-items:center;justify-content:center;color:rgba(127,29,29,.45);font-size:10px;z-index:2;pointer-events:none}
-.mine-expert-path{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.28;background-image:radial-gradient(circle,rgba(254,240,138,.92) 0 2px,transparent 3px);background-size:34px 34px;mask-image:linear-gradient(to top,#000,transparent 92%)}
-.mine-start-badge{box-shadow:0 10px 18px rgba(0,0,0,.16),inset 0 1px rgba(255,255,255,.18)}
-.mine-result-pop{animation:mineResultPop .45s cubic-bezier(.2,.8,.2,1.25) both}
-@keyframes mineRunBob{from{transform:translateY(0) rotate(-1deg)}to{transform:translateY(-5px) rotate(1deg)}}
-@keyframes mineArm{from{transform:rotate(-18deg)}to{transform:rotate(20deg)}}
-@keyframes mineLeg{from{transform:rotate(-14deg)}to{transform:rotate(16deg)}}
-@keyframes mineSafePulse{0%{opacity:0;transform:translate(-50%,-50%) scale(.35)}40%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.7)}}
-@keyframes mineWrongShake{0%,100%{transform:translate(-50%,-50%)}25%{transform:translate(calc(-50% - 6px),-50%)}75%{transform:translate(calc(-50% + 6px),-50%)}}
-@keyframes mineBlast{0%{transform:scale(.15);opacity:0}28%{opacity:1}100%{transform:scale(1.65);opacity:0}}
-@keyframes mineSmoke{0%{transform:translate(-50%,-30%) scale(.35);opacity:.8}100%{transform:translate(-50%,-110%) scale(1.55);opacity:0}}
-@keyframes mineExplosionFade{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
-@keyframes mineMapShake{0%,100%{transform:translate(0)}15%{transform:translate(-5px,2px)}30%{transform:translate(5px,-2px)}45%{transform:translate(-4px,-2px)}60%{transform:translate(4px,2px)}75%{transform:translate(-2px,1px)}}
-@keyframes mineResultPop{0%{opacity:0;transform:scale(.85) translateY(10px)}100%{opacity:1;transform:scale(1) translateY(0)}}
-@media(max-width:1100px){.mine-answer-node{width:min(28%,172px);min-width:110px}.mine-expert-character{width:86px;height:110px}}
-@media(max-width:900px){.mine-answer-node{width:32%;min-width:102px;padding:8px 9px;min-height:58px}.mine-answer-node .mine-letter{width:32px;height:32px;min-width:32px;font-size:16px}.mine-expert-character{width:76px;height:98px}}
-@media(max-width:640px){.mine-answer-node{width:38%;min-width:0;border-radius:16px}.mine-answer-node .mine-answer-text{font-size:11px}.mine-answer-node .mine-letter{width:28px;height:28px;min-width:28px;font-size:14px}.mine-expert-character{width:66px;height:86px}.mine-safe-ring{width:92px;height:92px}.mine-expert-map .mine-map-grid{inset:24% 3% 8%;background-size:42px 42px}}
-/* ---- Gameplay bản đồ liên tục + bong bóng nước 3D ---- */
-.mine-expert-map{min-height:500px;contain:layout paint;}
-.mine-map-stage{position:absolute;inset:0;z-index:1;transform:translate3d(0,0,0) scale(1);opacity:1;transition:transform .62s cubic-bezier(.22,.78,.22,1),opacity .55s ease,filter .55s ease;will-change:transform,opacity,filter;}
-.mine-map-stage.mine-scroll-out{transform:translate3d(0,30%,0) scale(.965);opacity:.06;filter:blur(2px) saturate(.9);}
-.mine-map-stage.mine-scroll-in{animation:mineZoneEnter .62s cubic-bezier(.18,.82,.24,1) both;}
-.mine-expert-map.mine-camera-scrolling{box-shadow:inset 0 1px rgba(255,255,255,.55),inset 0 -18px 40px rgba(9,54,17,.32),0 25px 65px rgba(0,0,0,.25),0 0 0 4px rgba(190,242,100,.08);}
-.mine-answer-node{width:152px!important;min-width:104px!important;min-height:94px!important;background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;border-radius:0!important;padding:0!important;color:#10251a!important;text-align:center!important;display:flex!important;flex-direction:column!important;justify-content:flex-start!important;gap:6px!important;overflow:visible!important;}
-.mine-answer-node:hover:not(:disabled){transform:translate(-50%,-50%) scale(1.045)!important;box-shadow:none!important;border:0!important;}
-.mine-water-bubble{position:relative;width:60px;height:60px;min-width:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 23%,rgba(255,255,255,.96) 0 7%,rgba(255,255,255,.38) 8% 18%,rgba(191,239,255,.52) 33%,rgba(77,196,235,.28) 61%,rgba(8,145,178,.38) 100%);border:1.5px solid rgba(224,247,255,.88);box-shadow:inset -9px -12px 18px rgba(14,116,144,.18),inset 8px 8px 15px rgba(255,255,255,.55),0 12px 20px rgba(7,78,91,.22),0 0 0 4px rgba(255,255,255,.08);animation:mineBubbleFloat 2.5s ease-in-out infinite;animation-delay:var(--bubble-delay,0s);transition:transform .2s ease,filter .2s ease,box-shadow .2s ease;}
-.mine-water-bubble:before{content:"";position:absolute;left:14px;top:9px;width:18px;height:10px;border-radius:50%;background:rgba(255,255,255,.78);transform:rotate(-28deg);filter:blur(.2px);}
-.mine-water-bubble:after{content:"";position:absolute;right:9px;bottom:10px;width:9px;height:16px;border-radius:50%;background:rgba(125,211,252,.28);transform:rotate(28deg);}
-.mine-answer-node .mine-letter{position:relative;z-index:2;width:auto!important;height:auto!important;min-width:0!important;border-radius:0!important;background:none!important;color:#063e55!important;font-size:27px!important;font-weight:1000!important;box-shadow:none!important;text-shadow:0 1px 0 rgba(255,255,255,.9),0 2px 8px rgba(14,116,144,.16);}
-.mine-answer-node .mine-answer-text{max-width:150px;padding:4px 8px;border-radius:10px;background:rgba(255,255,255,.82);border:1px solid rgba(255,255,255,.72);box-shadow:0 6px 14px rgba(0,0,0,.12);color:#12351f!important;font-size:clamp(11px,.95vw,14px)!important;font-weight:900!important;line-height:1.14!important;text-shadow:none!important;overflow-wrap:anywhere;}
-.mine-answer-node.selected .mine-water-bubble{transform:scale(1.08);filter:saturate(1.15);box-shadow:inset -9px -12px 18px rgba(14,116,144,.18),inset 8px 8px 15px rgba(255,255,255,.55),0 0 0 6px rgba(250,204,21,.25),0 14px 24px rgba(0,0,0,.22);}
-.mine-answer-node.correct .mine-water-bubble{background:radial-gradient(circle at 30% 23%,#fff 0 8%,rgba(255,255,255,.55) 12%,rgba(187,247,208,.72) 34%,rgba(74,222,128,.55) 66%,rgba(21,128,61,.62) 100%);border-color:#bbf7d0;box-shadow:0 0 0 7px rgba(34,197,94,.2),0 0 30px rgba(74,222,128,.5),inset 8px 8px 15px rgba(255,255,255,.6);animation:mineBubbleCorrect .65s ease both;}
-.mine-answer-node.wrong{animation:none!important;}
-.mine-answer-node.wrong .mine-water-bubble{background:radial-gradient(circle at 30% 23%,#fff 0 7%,rgba(255,255,255,.42) 11%,rgba(254,205,211,.72) 36%,rgba(251,113,133,.52) 68%,rgba(190,18,60,.62) 100%);border-color:#fecdd3;animation:mineBubbleWrong .46s ease both;box-shadow:0 0 0 6px rgba(244,63,94,.18),0 10px 24px rgba(0,0,0,.22);}
-.mine-answer-node:disabled{pointer-events:none;}
-.mine-answer-node:disabled .mine-water-bubble{animation-play-state:paused;}
-.mine-expert-character{transition:left .82s cubic-bezier(.22,.72,.23,1),top .82s cubic-bezier(.22,.72,.23,1),transform .22s ease!important;will-change:left,top;}
-.mine-expert-character.returning .mine-expert-soldier{transform:scaleX(-1);}
-.mine-map-scroll-flash{position:absolute;inset:0;z-index:50;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(255,255,255,.18),transparent);transform:translateY(-120%);animation:mineScrollFlash .7s ease both;}
-@keyframes mineBubbleFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-5px) scale(1.018)}}
-@keyframes mineBubbleCorrect{0%{transform:scale(.92)}45%{transform:scale(1.18)}100%{transform:scale(1.04)}}
-@keyframes mineBubbleWrong{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px) rotate(-4deg)}75%{transform:translateX(5px) rotate(4deg)}}
-@keyframes mineZoneEnter{0%{transform:translate3d(0,-28%,0) scale(1.035);opacity:.05;filter:blur(2px)}100%{transform:translate3d(0,0,0) scale(1);opacity:1;filter:blur(0)}}
-@keyframes mineScrollFlash{0%{transform:translateY(-120%);opacity:0}25%{opacity:.7}100%{transform:translateY(120%);opacity:0}}
-@media(max-width:900px){.mine-answer-node{width:132px!important;min-width:92px!important;min-height:86px!important}.mine-water-bubble{width:54px;height:54px;min-width:54px}.mine-answer-node .mine-letter{font-size:23px!important}.mine-answer-node .mine-answer-text{max-width:128px;font-size:11px!important}}
-@media(max-width:640px){.mine-answer-node{width:112px!important;min-width:82px!important;min-height:78px!important}.mine-water-bubble{width:48px;height:48px;min-width:48px}.mine-answer-node .mine-letter{font-size:20px!important}.mine-answer-node .mine-answer-text{max-width:108px;font-size:10px!important;padding:3px 5px}.mine-expert-map{min-height:480px}}
-@media(prefers-reduced-motion:reduce){.mine-map-stage,.mine-water-bubble{animation-duration:.01ms!important;transition-duration:.15s!important}}
-@media(prefers-reduced-motion:reduce){.mine-expert-character,.mine-answer-node{transition-duration:.15s!important}.mine-expert-character *,.mine-explosion *,.mine-expert-map{animation-duration:.01ms!important;animation-iteration-count:1!important}}
+.mine-expert-character.moving .mine-expert-soldier,.mine-expert-character.returning .mine-expert-soldier{animation:mineRunBob .18s linear infinite alternate}.mine-expert-character.moving .mine-arm-left,.mine-expert-character.returning .mine-arm-left{transform-origin:44px 66px;animation:mineArm .26s ease-in-out infinite alternate}.mine-expert-character.moving .mine-arm-right,.mine-expert-character.returning .mine-arm-right{transform-origin:76px 66px;animation:mineArm .26s ease-in-out infinite alternate-reverse}.mine-expert-character.moving .mine-leg-left,.mine-expert-character.returning .mine-leg-left{transform-origin:52px 97px;animation:mineLeg .24s ease-in-out infinite alternate}.mine-expert-character.moving .mine-leg-right,.mine-expert-character.returning .mine-leg-right{transform-origin:70px 97px;animation:mineLeg .24s ease-in-out infinite alternate-reverse}
+.mine-expert-character.waiting{animation:mineCharacterIdle 1.5s ease-in-out infinite alternate}
+.mine-safe-ring{position:absolute;width:118px;height:118px;border:4px solid #4ade80;border-radius:50%;transform:translate(-50%,-50%);z-index:24;pointer-events:none;animation:mineSafePulse 1.05s ease-out both;box-shadow:0 0 30px rgba(74,222,128,.55)}.mine-safe-ring:after{content:"✓ AN TOÀN";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:13px;font-weight:1000;color:#dcfce7;white-space:nowrap;text-shadow:0 2px 5px #052e16}
+.mine-explosion{position:absolute;width:160px;height:160px;transform:translate(-50%,-50%);z-index:45;pointer-events:none;animation:mineExplosionFade .9s ease-out both}.mine-explosion .blast{position:absolute;inset:25%;border-radius:50%;background:radial-gradient(circle,#fff 0 8%,#fde047 12% 28%,#fb923c 30% 52%,#ef4444 54% 68%,transparent 70%);filter:drop-shadow(0 0 18px #fb923c);animation:mineBlast .62s cubic-bezier(.2,.7,.2,1) both}.mine-explosion .smoke{position:absolute;left:50%;top:48%;width:72px;height:72px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#94a3b8,#334155 68%,transparent 72%);opacity:.78;animation:mineSmoke .95s ease-out both}
+.mine-expert-map.exploding{animation:mineMapShake .5s ease-in-out both}.mine-marker{position:absolute;width:24px;height:24px;border-radius:999px;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.42),rgba(255,255,255,.06) 60%,transparent 66%);box-shadow:inset 0 1px rgba(255,255,255,.24),0 8px 16px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;color:rgba(127,29,29,.34);font-size:9px;z-index:2;pointer-events:none}.mine-expert-path{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.20;background-image:radial-gradient(circle,rgba(254,240,138,.85) 0 2px,transparent 3px);background-size:34px 34px;mask-image:linear-gradient(to top,#000,transparent 92%)}
+.mine-start-badge{box-shadow:0 10px 18px rgba(0,0,0,.16),inset 0 1px rgba(255,255,255,.18)}.mine-result-pop{animation:mineResultPop .45s cubic-bezier(.2,.8,.2,1.25) both}
+@keyframes mineWorldScrollDown{0%{transform:translateY(-3%);opacity:1}100%{transform:translateY(30%);opacity:.15}}
+@keyframes mineMapBackgroundScroll{0%{background-position:center 0}100%{background-position:center 120px}}
+@keyframes mineBubbleFloat{0%{transform:translateY(0) scale(1)}100%{transform:translateY(-5px) scale(1.025)}}
+@keyframes mineCharacterIdle{0%{transform:translate(-50%,-74%) translateY(0)}100%{transform:translate(-50%,-74%) translateY(-3px)}}
+@keyframes mineRunBob{from{transform:translateY(0) rotate(-1deg)}to{transform:translateY(-5px) rotate(1deg)}}@keyframes mineArm{from{transform:rotate(-18deg)}to{transform:rotate(20deg)}}@keyframes mineLeg{from{transform:rotate(-14deg)}to{transform:rotate(16deg)}}@keyframes mineSafePulse{0%{opacity:0;transform:translate(-50%,-50%) scale(.35)}40%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.7)}}@keyframes mineWrongShake{0%,100%{transform:translate(-50%,-50%)}25%{transform:translate(calc(-50% - 5px),-50%)}75%{transform:translate(calc(-50% + 5px),-50%)}}@keyframes mineBlast{0%{transform:scale(.15);opacity:0}28%{opacity:1}100%{transform:scale(1.65);opacity:0}}@keyframes mineSmoke{0%{transform:translate(-50%,-30%) scale(.35);opacity:.8}100%{transform:translate(-50%,-110%) scale(1.55);opacity:0}}@keyframes mineExplosionFade{0%{opacity:1}70%{opacity:1}100%{opacity:0}}@keyframes mineMapShake{0%,100%{transform:translate(0)}15%{transform:translate(-5px,2px)}30%{transform:translate(5px,-2px)}45%{transform:translate(-4px,-2px)}60%{transform:translate(4px,2px)}75%{transform:translate(-2px,1px)}}@keyframes mineResultPop{0%{opacity:0;transform:scale(.85) translateY(10px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+@media(max-width:1100px){.mine-answer-node{width:136px}.mine-expert-character{width:86px;height:110px}.mine-water-bubble{width:58px;height:58px}}
+@media(max-width:900px){.mine-answer-node{width:126px;min-height:94px}.mine-answer-caption{font-size:11px}.mine-expert-character{width:76px;height:98px}.mine-water-bubble{width:54px;height:54px}.mine-bubble-letter{font-size:17px}}
+@media(max-width:640px){.mine-answer-node{width:108px;min-height:88px}.mine-answer-caption{font-size:10px;padding:3px 5px}.mine-expert-character{width:66px;height:86px}.mine-water-bubble{width:48px;height:48px}.mine-bubble-letter{font-size:15px}.mine-map-prop.tree{transform:scale(.78)}}
+@media(prefers-reduced-motion:reduce){.mine-expert-character,.mine-answer-node{transition-duration:.15s!important}.mine-expert-character *,.mine-explosion *,.mine-expert-map,.mine-map-world,.mine-water-bubble{animation-duration:.01ms!important;animation-iteration-count:1!important}}
 </style>
 
 </head>
@@ -3284,11 +3239,31 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         // - Không tạo database/API mới; chỉ lưu trong state hiện tại.
         // =============================================================
         window.mineExpertTimers = window.mineExpertTimers || [];
-        const MINE_EXPERT_START_POS = { x: 50, y: 90 };
-        const MINE_EXPERT_PHASE = Object.freeze({
-            IDLE:'IDLE', RUNNING:'RUNNING', EXPLODING:'EXPLODING', RETURNING:'RETURNING',
-            SCROLLING:'SCROLLING', NEXT_QUESTION:'NEXT_QUESTION', FINISHED:'FINISHED'
-        });
+        const MINE_EXPERT_START_POS = { x: 50, y: 91 };
+        const MINE_EXPERT_FALLBACK_POSITIONS = [
+            {x:20,y:27}, {x:76,y:25}, {x:23,y:67}, {x:78,y:68}
+        ];
+
+        function mineExpertDistance(a,b){
+            if(!a||!b)return 999;
+            return Math.hypot(Number(a.x||0)-Number(b.x||0), Number(a.y||0)-Number(b.y||0));
+        }
+
+        function mineExpertGenerateAnswerPositions(characterPos = MINE_EXPERT_START_POS) {
+            const out=[];
+            for(let tries=0; tries<240 && out.length<4; tries++){
+                const p={x:16+Math.random()*68,y:23+Math.random()*53};
+                if(mineExpertDistance(p,characterPos)<17) continue;
+                if(out.some(other=>mineExpertDistance(p,other)<24)) continue;
+                out.push({x:Math.round(p.x*10)/10,y:Math.round(p.y*10)/10});
+            }
+            if(out.length<4){
+                const fallback=[...MINE_EXPERT_FALLBACK_POSITIONS].sort(()=>Math.random()-.5);
+                fallback.forEach(p=>{if(out.length<4&&!out.some(o=>mineExpertDistance(o,p)<18)&&mineExpertDistance(p,characterPos)>=15)out.push({...p});});
+            }
+            while(out.length<4) out.push({...MINE_EXPERT_FALLBACK_POSITIONS[out.length]});
+            return out.slice(0,4).sort(()=>Math.random()-.5);
+        }
         const MINE_EXPERT_MARKERS = [
             [9,14],[37,17],[60,12],[91,18],[10,48],[47,48],[66,43],[92,51],[9,79],[42,78],[62,83],[91,82]
         ];
@@ -3456,79 +3431,6 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             return selected;
         }
 
-
-        function mineExpertRandom(min,max){ return min + Math.random()*(max-min); }
-        function mineExpertDistance(a,b){ return Math.hypot((a.x-b.x)*1.05,(a.y-b.y)*1.25); }
-        function mineExpertGenerateStart(questionIndex=0) {
-            const wobble=((Number(questionIndex)||0)%2===0?1:-1)*mineExpertRandom(0,5);
-            return {x:Math.max(42,Math.min(58,50+wobble)),y:mineExpertRandom(88,91)};
-        }
-        function mineExpertGenerateAnswerPositions(start) {
-            const pts=[]; let tries=0;
-            while(pts.length<4 && tries<420){
-                tries++;
-                const p={x:mineExpertRandom(14,86),y:mineExpertRandom(20,70)};
-                if(mineExpertDistance(p,start)<27) continue;
-                if(pts.some(other=>mineExpertDistance(p,other)<27)) continue;
-                pts.push(p);
-            }
-            if(pts.length<4){
-                const fallback=[{x:17,y:24},{x:48,y:22},{x:82,y:28},{x:24,y:57},{x:58,y:51},{x:83,y:62},{x:42,y:70},{x:68,y:72}].sort(()=>Math.random()-.5);
-                for(const p of fallback){ if(pts.length>=4)break; if(mineExpertDistance(p,start)>=25 && !pts.some(o=>mineExpertDistance(p,o)<24))pts.push({...p}); }
-            }
-            return pts.slice(0,4).sort(()=>Math.random()-.5);
-        }
-        function mineExpertPrepareRound(p, advanceZone=true) {
-            p.questionStart=mineExpertGenerateStart(p.questionIndex);
-            p.character={...p.questionStart};
-            p.answerPositions=mineExpertGenerateAnswerPositions(p.questionStart);
-            p.selectedIndex=null; p.feedback=null; p.explosionIndex=null;
-            p.phase=MINE_EXPERT_PHASE.IDLE;
-            if(advanceZone) p.zoneSeed=(Number(p.zoneSeed)||0)+1;
-        }
-        function mineExpertEnsureRoundState(p) {
-            if(!p)return;
-            const legacy={answering:MINE_EXPERT_PHASE.IDLE,moving:MINE_EXPERT_PHASE.RUNNING,result:MINE_EXPERT_PHASE.IDLE,finished:MINE_EXPERT_PHASE.FINISHED};
-            if(legacy[p.phase]) p.phase=legacy[p.phase];
-            if(!Object.values(MINE_EXPERT_PHASE).includes(p.phase)) p.phase=MINE_EXPERT_PHASE.IDLE;
-            if(!p.questionStart) p.questionStart={...MINE_EXPERT_START_POS};
-            if(!Array.isArray(p.answerPositions)||p.answerPositions.length!==4) p.answerPositions=mineExpertGenerateAnswerPositions(p.questionStart);
-            if(!p.character) p.character={...p.questionStart};
-            if(typeof p.zoneSeed!=='number') p.zoneSeed=1;
-        }
-        function mineExpertLater(fn,ms){ const t=setTimeout(fn,ms); window.mineExpertTimers.push(t); return t; }
-        function mineExpertStatusHtml(p){
-            if(!p)return '';
-            if(p.phase===MINE_EXPERT_PHASE.RUNNING)return '🏃 Đang chạy tới đáp án...';
-            if(p.phase===MINE_EXPERT_PHASE.EXPLODING)return '💥 Chưa an toàn! Mìn vừa phát nổ...';
-            if(p.phase===MINE_EXPERT_PHASE.RETURNING)return '↩️ Chuyên gia đang chạy về điểm xuất phát...';
-            if(p.phase===MINE_EXPERT_PHASE.SCROLLING||p.phase===MINE_EXPERT_PHASE.NEXT_QUESTION)return '🗺️ Đang tiến sâu vào khu vực mới...';
-            return '👉 Chọn một bong bóng đáp án trên bản đồ';
-        }
-        function mineExpertSetAnswerLock(locked){ document.querySelectorAll('#mine-expert-map .mine-answer-node').forEach(el=>el.disabled=!!locked); }
-        function mineExpertSetStatus(html){ const el=document.getElementById('mine-expert-status');if(el)el.innerHTML=html; }
-        function mineExpertSetFeedback(html=''){const el=document.getElementById('mine-expert-feedback');if(el)el.innerHTML=html;}
-        function mineExpertSetCharacter(pos,moving=false,returning=false){
-            const ch=document.getElementById('mine-expert-character'); if(!ch)return;
-            ch.classList.toggle('moving',!!moving); ch.classList.toggle('returning',!!returning);
-            requestAnimationFrame(()=>{ch.style.left=`${pos.x}%`;ch.style.top=`${pos.y}%`;});
-        }
-        function mineExpertAddExplosion(index){
-            const p=ensureMineExpertState().play,pos=p?.answerPositions?.[Number(index)],stage=document.querySelector('#mine-expert-map .mine-map-stage');if(!pos||!stage)return;
-            stage.querySelectorAll('.mine-explosion').forEach(x=>x.remove());
-            stage.insertAdjacentHTML('beforeend',`<div class="mine-explosion" style="left:${pos.x}%;top:${pos.y}%"><div class="blast"></div><div class="smoke"></div></div>`);
-            document.getElementById('mine-expert-map')?.classList.add('exploding');
-        }
-        function mineExpertAddSafeRing(){
-            const p=ensureMineExpertState().play,stage=document.querySelector('#mine-expert-map .mine-map-stage');if(!p||!stage)return;
-            stage.querySelectorAll('.mine-safe-ring').forEach(x=>x.remove());
-            stage.insertAdjacentHTML('beforeend',`<div class="mine-safe-ring" style="left:${p.character.x}%;top:${p.character.y}%"></div>`);
-        }
-        function mineExpertClearTransientFx(){
-            const map=document.getElementById('mine-expert-map'); map?.classList.remove('exploding','mine-camera-scrolling');
-            map?.querySelectorAll('.mine-explosion,.mine-safe-ring,.mine-map-scroll-flash').forEach(x=>x.remove());
-        }
-
         window.startMineExpertGame = function() {
             const g=ensureMineExpertState(), contestant=mineExpertContestant();
             if(!contestant) return showToast('Hãy chọn học sinh hoặc đội chơi!', 'error');
@@ -3537,106 +3439,86 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             mineExpertClearTimers();
             if(g.settings.soundEnabled) window.startGameBackgroundMusic?.('mine-expert'); else window.stopGameBackgroundMusic?.(true);
             mineExpertSound('select');
+            const start={...MINE_EXPERT_START_POS};
             g.play={
                 status:'playing', contestant, questions:bank, questionIndex:0, correct:0, wrong:0, score:0,
-                attempts:0, phase:MINE_EXPERT_PHASE.IDLE, selectedIndex:null, feedback:null, explosionIndex:null,
-                character:{...MINE_EXPERT_START_POS}, questionStart:{...MINE_EXPERT_START_POS}, answerPositions:[], zoneSeed:0, startedAt:Date.now()
+                attempts:0, phase:'answering', selectedIndex:null, feedback:null, explosionIndex:null,
+                character:start, previousPosition:null, answerPositions:mineExpertGenerateAnswerPositions(start), mapStep:0, startedAt:Date.now()
             };
-            mineExpertPrepareRound(g.play,true);
             g.view='play'; saveData(); window.initMineExpertGame();
             setTimeout(()=>window.enterInteractiveGameFullscreen?.(),70);
         };
 
         window.submitMineExpertAnswer = function(index) {
-            const g=ensureMineExpertState(),p=g.play; index=Number(index); mineExpertEnsureRoundState(p);
-            if(!p||p.status!=='playing'||p.phase!==MINE_EXPERT_PHASE.IDLE)return;
-            const q=p.questions?.[p.questionIndex],opt=q?.options?.[index],pos=p.answerPositions?.[index];if(!opt||!pos)return;
-            p.phase=MINE_EXPERT_PHASE.RUNNING;p.selectedIndex=index;p.feedback='moving';p.attempts++;p.character={...pos};saveData();mineExpertSound('select');
-            mineExpertSetAnswerLock(true);
-            document.querySelectorAll('#mine-expert-map .mine-answer-node').forEach((el,i)=>el.classList.toggle('selected',i===index));
-            mineExpertSetStatus('<i class="ph-bold ph-person-simple-run animate-pulse mr-1"></i> Đang chạy tới đáp án...');
-            mineExpertSetFeedback('');mineExpertSetCharacter(pos,true,false);
-            mineExpertLater(()=>window.resolveMineExpertAnswer(index),840);
+            const g=ensureMineExpertState(), p=g.play; index=Number(index);
+            if(!p || p.status!=='playing' || p.phase!=='answering') return;
+            const q=p.questions?.[p.questionIndex], opt=q?.options?.[index]; if(!opt)return;
+            if(!Array.isArray(p.answerPositions)||p.answerPositions.length!==4) p.answerPositions=mineExpertGenerateAnswerPositions(p.character);
+            p.previousPosition={...p.character};
+            p.phase='moving'; p.selectedIndex=index; p.feedback='moving'; p.attempts++;
+            const pos=p.answerPositions[index] || MINE_EXPERT_FALLBACK_POSITIONS[index] || MINE_EXPERT_START_POS;
+            p.character={...pos}; saveData(); mineExpertSound('select');
+            document.querySelectorAll('.mine-answer-node').forEach((el,i)=>{el.disabled=true;el.classList.toggle('selected',i===index)});
+            const status=document.getElementById('mine-expert-status'); if(status) status.innerHTML='<i class="ph-bold ph-person-simple-run animate-pulse mr-1"></i> Đang chạy tới đáp án...';
+            const ch=document.getElementById('mine-expert-character');
+            if(ch){ ch.classList.remove('waiting','returning'); ch.classList.add('moving'); ch.style.left=`${pos.x}%`; ch.style.top=`${pos.y}%`; }
+            const t=setTimeout(()=>window.resolveMineExpertAnswer(index),860); window.mineExpertTimers.push(t);
         };
 
         window.resolveMineExpertAnswer = function(index) {
-            const g=ensureMineExpertState(),p=g.play;index=Number(index);mineExpertEnsureRoundState(p);
-            if(!p||p.status!=='playing'||p.phase!==MINE_EXPERT_PHASE.RUNNING)return;
-            const q=p.questions?.[p.questionIndex],opt=q?.options?.[index];if(!opt)return;
-            mineExpertSetCharacter(p.character,false,false);
+            const g=ensureMineExpertState(),p=g.play;if(!p||p.status!=='playing'||p.phase!=='moving')return;
+            const q=p.questions?.[p.questionIndex], opt=q?.options?.[Number(index)]; if(!opt)return;
             if(opt.isCorrect){
-                p.phase=MINE_EXPERT_PHASE.NEXT_QUESTION;p.feedback='correct';p.correct++;p.score+=100;saveData();mineExpertSound('correct');
-                const selected=document.querySelector(`#mine-expert-map .mine-answer-node[data-answer-index="${index}"]`);selected?.classList.add('correct');
-                mineExpertAddSafeRing();mineExpertSetStatus('✅ Chính xác! Khu vực này an toàn.');
-                mineExpertSetFeedback('<div class="mine-result-pop rounded-2xl bg-emerald-500/14 border border-emerald-300/35 p-3 text-emerald-100 shadow-lg"><div class="font-black text-lg">✅ AN TOÀN!</div><div class="text-xs mt-1">Chuẩn bị tiến sâu vào khu vực tiếp theo...</div></div>');
-                mineExpertLater(()=>{
-                    if(!g.play||g.play.status!=='playing')return;
-                    if(g.play.questionIndex>=g.play.questions.length-1) window.finishMineExpertGame();
-                    else window.startMineExpertMapScroll();
-                },720);
-            } else {
-                p.phase=MINE_EXPERT_PHASE.EXPLODING;p.feedback='wrong';p.wrong++;p.explosionIndex=index;saveData();mineExpertSound('wrong');
-                document.querySelector(`#mine-expert-map .mine-answer-node[data-answer-index="${index}"]`)?.classList.add('wrong');
-                mineExpertAddExplosion(index);mineExpertSetStatus('💥 Chưa an toàn! Đợi khói tan rồi quay lại thử tiếp.');
-                mineExpertSetFeedback('<div class="mine-result-pop rounded-2xl bg-rose-500/14 border border-rose-300/35 p-3 text-rose-50 shadow-lg"><div class="font-black text-lg">💥 BÙM!</div><div class="text-xs mt-1">Chưa đúng. Chuyên gia sẽ quay về điểm xuất phát để thử lại.</div></div>');
-                mineExpertLater(()=>window.returnMineExpertToStart(),720);
+                p.phase='correct-result';p.feedback='correct';p.correct++;p.score+=100;p.explosionIndex=null;mineExpertSound('correct');saveData();window.initMineExpertGame();
+                const standTimer=setTimeout(()=>window.advanceMineExpertAfterCorrect(),620);window.mineExpertTimers.push(standTimer);
+            }else{
+                p.phase='wrong-result';p.feedback='wrong';p.wrong++;p.explosionIndex=Number(index);mineExpertSound('wrong');saveData();window.initMineExpertGame();
+                const returnTimer=setTimeout(()=>window.returnMineExpertAfterWrong(),650);window.mineExpertTimers.push(returnTimer);
             }
         };
 
-        window.returnMineExpertToStart = function() {
-            const g=ensureMineExpertState(),p=g.play;mineExpertEnsureRoundState(p);
-            if(!p||p.status!=='playing'||p.phase!==MINE_EXPERT_PHASE.EXPLODING)return;
-            p.phase=MINE_EXPERT_PHASE.RETURNING;p.feedback='returning';p.explosionIndex=null;p.character={...p.questionStart};saveData();
-            const map=document.getElementById('mine-expert-map');map?.classList.remove('exploding');map?.querySelectorAll('.mine-explosion').forEach(x=>x.remove());
-            mineExpertSetStatus('↩️ Đang quay về điểm xuất phát...');mineExpertSetFeedback('');mineExpertSetCharacter(p.questionStart,true,true);
-            mineExpertLater(()=>{
-                const current=ensureMineExpertState().play;if(!current||current.status!=='playing'||current.phase!==MINE_EXPERT_PHASE.RETURNING)return;
-                current.phase=MINE_EXPERT_PHASE.IDLE;current.selectedIndex=null;current.feedback=null;current.character={...current.questionStart};saveData();
-                const ch=document.getElementById('mine-expert-character');ch?.classList.remove('moving','returning');
-                document.querySelectorAll('#mine-expert-map .mine-answer-node').forEach(el=>el.classList.remove('selected','wrong'));
-                mineExpertSetAnswerLock(false);mineExpertSetStatus('👉 Chọn lại một bong bóng đáp án.');
-            },850);
+        window.returnMineExpertAfterWrong = function(){
+            const g=ensureMineExpertState(),p=g.play;if(!p||p.status!=='playing'||p.phase!=='wrong-result')return;
+            const back=p.previousPosition?{...p.previousPosition}:{...MINE_EXPERT_START_POS};
+            p.phase='returning';p.explosionIndex=null;p.character={...back};saveData();
+            const status=document.getElementById('mine-expert-status');if(status)status.innerHTML='↩️ Chưa đúng — đang quay lại vị trí cũ...';
+            const ch=document.getElementById('mine-expert-character');
+            if(ch){ch.classList.remove('moving','waiting');ch.classList.add('returning');ch.style.left=`${back.x}%`;ch.style.top=`${back.y}%`;}
+            const done=setTimeout(()=>{
+                const g2=ensureMineExpertState(),p2=g2.play;if(!p2||p2.status!=='playing'||p2.phase!=='returning')return;
+                p2.phase='answering';p2.selectedIndex=null;p2.feedback=null;p2.explosionIndex=null;p2.previousPosition=null;saveData();window.initMineExpertGame();
+            },860);window.mineExpertTimers.push(done);
         };
 
-        window.startMineExpertMapScroll = function() {
-            const g=ensureMineExpertState(),p=g.play;mineExpertEnsureRoundState(p);
-            if(!p||p.status!=='playing'||p.phase!==MINE_EXPERT_PHASE.NEXT_QUESTION)return;
-            p.phase=MINE_EXPERT_PHASE.SCROLLING;saveData();mineExpertSetAnswerLock(true);mineExpertSetStatus('🗺️ Đang tiến sâu vào khu vực mới...');
-            const map=document.getElementById('mine-expert-map'),stage=map?.querySelector('.mine-map-stage');
-            map?.classList.add('mine-camera-scrolling');stage?.classList.add('mine-scroll-out');map?.insertAdjacentHTML('beforeend','<div class="mine-map-scroll-flash"></div>');
-            mineExpertLater(()=>{
-                const current=ensureMineExpertState().play;if(!current||current.status!=='playing'||current.phase!==MINE_EXPERT_PHASE.SCROLLING)return;
-                current.phase=MINE_EXPERT_PHASE.NEXT_QUESTION;current.questionIndex++;mineExpertPrepareRound(current,true);current.phase=MINE_EXPERT_PHASE.NEXT_QUESTION;saveData();
-                window.refreshMineExpertRoundUI(true);
-                mineExpertLater(()=>{
-                    const latest=ensureMineExpertState().play;if(!latest||latest.status!=='playing')return;
-                    latest.phase=MINE_EXPERT_PHASE.IDLE;saveData();
-                    document.querySelector('#mine-expert-map .mine-map-stage')?.classList.remove('mine-scroll-in');
-                    document.getElementById('mine-expert-map')?.classList.remove('mine-camera-scrolling');
-                    mineExpertSetAnswerLock(false);mineExpertSetStatus('👉 Khu vực mới: chọn một bong bóng đáp án.');
-                },620);
-            },620);
+        window.advanceMineExpertAfterCorrect = function(){
+            const g=ensureMineExpertState(),p=g.play;if(!p||p.status!=='playing'||p.phase!=='correct-result')return;
+            p.phase='scrolling';p.mapStep=(Number(p.mapStep)||0)+1;saveData();window.initMineExpertGame();
+            const scrollTimer=setTimeout(()=>{
+                const g2=ensureMineExpertState(),p2=g2.play;if(!p2||p2.status!=='playing'||p2.phase!=='scrolling')return;
+                if(p2.questionIndex>=p2.questions.length-1){window.finishMineExpertGame();return;}
+                p2.questionIndex++;
+                p2.phase='answering';p2.selectedIndex=null;p2.feedback=null;p2.explosionIndex=null;p2.previousPosition=null;
+                /* Giữ nguyên vị trí nhân vật sau câu đúng; chỉ tạo điểm đáp án mới quanh chặng tiếp theo. */
+                p2.answerPositions=mineExpertGenerateAnswerPositions(p2.character);
+                saveData();window.initMineExpertGame();
+            },790);window.mineExpertTimers.push(scrollTimer);
         };
 
-        window.nextMineExpertQuestion = function() {
-            const p=ensureMineExpertState().play;if(!p||p.status!=='playing')return;
-            if(p.phase===MINE_EXPERT_PHASE.NEXT_QUESTION) window.startMineExpertMapScroll();
+        /* Tương thích nút cũ nếu có: chỉ cho chuyển khi đã đúng. */
+        window.nextMineExpertQuestion = function(){
+            const g=ensureMineExpertState(),p=g.play;if(!p||p.status!=='playing')return;
+            if(p.phase==='correct-result')window.advanceMineExpertAfterCorrect();
         };
 
         window.finishMineExpertGame = function() {
             const g=ensureMineExpertState(),p=g.play;if(!p||p.status==='finished')return;
-            p.status='finished';p.phase=MINE_EXPERT_PHASE.FINISHED;p.finishedAt=Date.now();mineExpertClearTimers();window.stopGameBackgroundMusic?.(true);mineExpertSound('win');saveData();window.initMineExpertGame();
+            p.status='finished';p.phase='finished';p.finishedAt=Date.now();mineExpertClearTimers();window.stopGameBackgroundMusic?.(true);mineExpertSound('win');saveData();window.initMineExpertGame();
         };
 
         window.replayMineExpertGame = function(){const g=ensureMineExpertState();g.view='config';g.play=null;saveData();window.initMineExpertGame();setTimeout(()=>window.startMineExpertGame(),80);};
         window.backMineExpertToConfig = function(){const g=ensureMineExpertState();window.cleanupMineExpertGame(false);g.view='config';g.play=null;saveData();window.exitInteractiveGameFullscreen?.();window.initMineExpertGame();};
         window.leaveMineExpertToMenu = function(){window.cleanupMineExpertGame(true);const g=ensureMineExpertState();g.view='config';g.play=null;saveData();state.activeGame=null;renderLayout();};
-        window.toggleMineExpertSound = function(){
-            const g=ensureMineExpertState();g.settings.soundEnabled=!g.settings.soundEnabled;saveData();
-            if(g.settings.soundEnabled&&g.play?.status==='playing')window.startGameBackgroundMusic?.('mine-expert');else window.stopGameBackgroundMusic?.(false);
-            const icon=document.querySelector('[data-mine-sound-icon]');if(icon)icon.className=`ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}`;
-            if(!g.play||g.view==='config')window.initMineExpertGame();
-        };
+        window.toggleMineExpertSound = function(){const g=ensureMineExpertState();g.settings.soundEnabled=!g.settings.soundEnabled;saveData();if(g.settings.soundEnabled&&g.play?.status==='playing')window.startGameBackgroundMusic?.('mine-expert');else window.stopGameBackgroundMusic?.(false);window.initMineExpertGame();};
 
         function mineExpertSoldierSvg() {
             return `<svg class="mine-expert-soldier w-full h-full" viewBox="0 0 120 150" aria-hidden="true">
@@ -3666,17 +3548,25 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             </svg>`;
         }
 
-        function mineExpertMapDecor(seed=1) {
-            let s=(Number(seed)||1)*9301+49297;
-            const rnd=()=>{s=(s*233280+49297)%233280;return s/233280;};
-            const props=[];
-            const types=['bush','rock','crater','flower','bush','rock','flower','crater','bush'];
-            types.forEach((type,i)=>{
-                const left=7+rnd()*86,top=15+rnd()*72,scale=.75+rnd()*.55;
-                props.push(`<div class="mine-map-prop ${type}" style="left:${left.toFixed(1)}%;top:${top.toFixed(1)}%;transform:scale(${scale.toFixed(2)})"></div>`);
-            });
-            props.push(`<div class="mine-map-prop mine-sign" style="left:${(6+rnd()*10).toFixed(1)}%;top:${(16+rnd()*10).toFixed(1)}%"></div>`);
-            return `<div class="mine-map-grid"></div>${props.join('')}`;
+        function mineExpertMapDecor() {
+            return `
+                <div class="mine-map-grid"></div>
+                <div class="mine-map-prop tree" style="left:5%;top:8%"></div>
+                <div class="mine-map-prop tree" style="left:90%;top:12%;transform:scale(.86)"></div>
+                <div class="mine-map-prop mine-sign" style="left:10%;top:30%"></div>
+                <div class="mine-map-prop bush" style="left:17%;top:18%"></div>
+                <div class="mine-map-prop rock" style="left:54%;top:17%"></div>
+                <div class="mine-map-prop flower" style="left:84%;top:29%"></div>
+                <div class="mine-map-prop bush" style="left:8%;top:61%"></div>
+                <div class="mine-map-prop crater" style="left:44%;top:35%"></div>
+                <div class="mine-map-prop rock" style="left:70%;top:49%"></div>
+                <div class="mine-map-prop flower" style="left:35%;top:57%"></div>
+                <div class="mine-map-prop crater" style="left:88%;top:60%"></div>
+                <div class="mine-map-prop tree" style="left:3%;top:77%;transform:scale(.72)"></div>
+                <div class="mine-map-prop bush" style="left:82%;top:83%"></div>
+                <div class="mine-map-prop rock" style="left:24%;top:87%"></div>
+                <div class="mine-map-prop flower" style="left:62%;top:84%"></div>
+            `;
         }
 
         function renderMineExpertConfig(g) {
@@ -3699,39 +3589,33 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 </div></div>`;
         }
 
-        function mineExpertProgress(p){return Math.round(((Number(p.correct)||0)/Math.max(1,p.questions?.length||1))*100);}
-        function renderMineExpertMapStage(g,p,entering=false){
-            mineExpertEnsureRoundState(p);const q=p.questions?.[p.questionIndex];if(!q)return '';
-            const positions=p.answerPositions,markers=MINE_EXPERT_MARKERS.map((m,i)=>`<div class="mine-marker" style="left:${m[0]}%;top:${m[1]}%">✦</div>`).join('');
-            const answerNodes=q.options.map((o,i)=>{const pos=positions[i]||{x:20+i*18,y:35};const locked=p.phase!==MINE_EXPERT_PHASE.IDLE;return `<button data-answer-index="${i}" class="mine-answer-node" style="left:${pos.x}%;top:${pos.y}%;--bubble-delay:${(-i*.42).toFixed(2)}s" onclick="submitMineExpertAnswer(${i})" ${locked?'disabled':''}><span class="mine-water-bubble"><span class="mine-letter">${String.fromCharCode(65+i)}</span></span><span class="mine-answer-text">${mfgEsc(o.text)}</span></button>`}).join('');
-            return `<div class="mine-map-stage ${entering?'mine-scroll-in':''}">${mineExpertMapDecor(p.zoneSeed)}<div class="mine-expert-path"></div>${markers}<div class="absolute left-1/2 bottom-3 -translate-x-1/2 px-3 py-1 rounded-full bg-black/28 text-[10px] font-black text-lime-50 border border-white/14 mine-start-badge">⛺ ĐIỂM XUẤT PHÁT</div>${answerNodes}<div id="mine-expert-character" class="mine-expert-character" style="left:${p.character.x}%;top:${p.character.y}%">${mineExpertSoldierSvg()}</div></div>`;
-        }
-
-        window.refreshMineExpertRoundUI = function(entering=false){
-            const g=ensureMineExpertState(),p=g.play;if(!p||p.status!=='playing')return;mineExpertEnsureRoundState(p);
-            const q=p.questions?.[p.questionIndex],progress=mineExpertProgress(p);if(!q)return;
-            const mission=document.getElementById('mine-mission-count');if(mission)mission.textContent=`Nhiệm vụ ${p.questionIndex+1}/${p.questions.length}`;
-            const bar=document.getElementById('mine-progress-bar');if(bar)bar.style.width=`${progress}%`;
-            const c=document.getElementById('mine-stat-correct');if(c)c.textContent=p.correct;
-            const s=document.getElementById('mine-stat-score');if(s)s.textContent=p.score;
-            const pr=document.getElementById('mine-stat-progress');if(pr)pr.textContent=`${progress}%`;
-            const qn=document.getElementById('mine-question-number');if(qn)qn.textContent=`Câu ${p.questionIndex+1}`;
-            const qt=document.getElementById('mine-question-text');if(qt)qt.textContent=q.text;
-            mineExpertSetFeedback('');mineExpertSetStatus(mineExpertStatusHtml(p));
-            const map=document.getElementById('mine-expert-map');if(map){map.classList.remove('exploding');map.innerHTML=renderMineExpertMapStage(g,p,entering);}
-            setTimeout(()=>window.updateInteractiveGameFullscreenButtons?.(),0);
-        };
-
         function renderMineExpertPlay(g,p) {
-            mineExpertEnsureRoundState(p);const q=p.questions?.[p.questionIndex];if(!q)return '';
-            const progress=mineExpertProgress(p);
+            const q=p.questions?.[p.questionIndex];
+            if(!q)return '';
+            if(!Array.isArray(p.answerPositions)||p.answerPositions.length!==4) p.answerPositions=mineExpertGenerateAnswerPositions(p.character||MINE_EXPERT_START_POS);
+            const isMoving=p.phase==='moving',isWrong=p.phase==='wrong-result',isReturning=p.phase==='returning',isCorrect=p.phase==='correct-result',isScrolling=p.phase==='scrolling';
+            const correctIdx=q.options.findIndex(o=>o.isCorrect);
+            const progress=Math.round(((p.questionIndex+(isCorrect||isScrolling?1:0))/p.questions.length)*100);
+            const markers=MINE_EXPERT_MARKERS.map((m,i)=>`<div class="mine-marker" style="left:${m[0]}%;top:${m[1]}%">✦</div>`).join('');
+            const mapDecor=mineExpertMapDecor();
+            const showAnswers=!isScrolling;
+            const answerNodes=showAnswers?q.options.map((o,i)=>{
+                const pos=p.answerPositions[i]||MINE_EXPERT_FALLBACK_POSITIONS[i];let cls='';
+                if(p.selectedIndex===i)cls+=' selected';if(isCorrect&&i===correctIdx)cls+=' correct';if(isWrong&&i===p.selectedIndex)cls+=' wrong';
+                return `<button class="mine-answer-node${cls}" style="left:${pos.x}%;top:${pos.y}%" onclick="submitMineExpertAnswer(${i})" ${p.phase!=='answering'?'disabled':''} aria-label="${String.fromCharCode(65+i)}. ${mfgEsc(o.text)}"><span class="mine-water-bubble"><span class="mine-bubble-letter">${String.fromCharCode(65+i)}</span></span><span class="mine-answer-caption">${mfgEsc(o.text)}</span></button>`;
+            }).join(''):'';
+            const safe=isCorrect?`<div class="mine-safe-ring" style="left:${p.character.x}%;top:${p.character.y}%"></div>`:'';
+            const boom=isWrong&&Number.isInteger(p.explosionIndex)?(()=>{const pos=p.answerPositions[p.explosionIndex]||MINE_EXPERT_FALLBACK_POSITIONS[p.explosionIndex];return `<div class="mine-explosion" style="left:${pos.x}%;top:${pos.y}%"><div class="blast"></div><div class="smoke"></div></div>`})():'';
+            const feedback=isCorrect?`<div class="mine-result-pop rounded-2xl bg-emerald-500/14 border border-emerald-300/35 p-4 text-emerald-100 shadow-lg"><div class="font-black text-xl">✅ An toàn!</div><div class="text-sm mt-1">Đúng rồi — chuẩn bị sang chặng tiếp theo.</div></div>`:isWrong?`<div class="mine-result-pop rounded-2xl bg-rose-500/15 border border-rose-300/35 p-4 text-rose-100 shadow-lg"><div class="font-black text-xl">💥 Chưa đúng!</div><div class="text-sm mt-1">Chuyên gia sẽ tự chạy về vị trí cũ để thử lại.</div></div>`:'';
+            const statusText=isMoving?'🏃 Đang chạy tới bong bóng đã chọn...':isWrong?'💥 Đã kích hoạt mìn — chuẩn bị quay lại':isReturning?'↩️ Đang chạy về vị trí cũ...':isCorrect?'✅ Đứng lại an toàn — chuẩn bị cuộn bản đồ':isScrolling?'🌿 Đang tiến sang chặng tiếp theo...':'💧 Chọn một bong bóng đáp án trên bản đồ';
+            const charClass=isMoving?'moving':isReturning?'returning':'waiting';
             return `<div class="mine-expert-shell w-full min-h-full h-full overflow-auto custom-scrollbar rounded-[1.5rem] p-3 md:p-4">
                 <div class="max-w-[1520px] mx-auto min-h-full flex flex-col gap-3">
-                    <div class="flex items-center justify-between gap-2 rounded-2xl border border-white/12 bg-black/18 backdrop-blur-md p-2.5 md:p-3 flex-shrink-0"><div class="flex items-center gap-2"><button onclick="backMineExpertToConfig()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 font-black text-xs"><i class="ph-bold ph-arrow-left mr-1"></i> <span class="hidden sm:inline">Về cấu hình</span></button><div><div id="mine-mission-count" class="text-[10px] uppercase tracking-[.2em] text-lime-200 font-black">Nhiệm vụ ${p.questionIndex+1}/${p.questions.length}</div><div class="font-black text-base md:text-xl">🧨 CHUYÊN GIA GỠ MÌN</div></div></div><div class="flex items-center gap-2"><button onclick="toggleMineExpertSound()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Âm thanh"><i data-mine-sound-icon class="ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}"></i></button><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-in"></i></button><button onclick="leaveMineExpertToMenu()" class="px-3 py-2 rounded-xl bg-red-500/20 border border-red-300/25 text-red-50 font-black text-xs">THOÁT</button></div></div>
-                    <div class="h-2.5 bg-white/10 rounded-full overflow-hidden flex-shrink-0"><div id="mine-progress-bar" class="h-full bg-gradient-to-r from-lime-300 via-emerald-300 to-cyan-300 rounded-full transition-all duration-500" style="width:${progress}%"></div></div>
+                    <div class="flex items-center justify-between gap-2 rounded-2xl border border-white/12 bg-black/18 backdrop-blur-md p-2.5 md:p-3 flex-shrink-0"><div class="flex items-center gap-2"><button onclick="backMineExpertToConfig()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 font-black text-xs"><i class="ph-bold ph-arrow-left mr-1"></i> <span class="hidden sm:inline">Về cấu hình</span></button><div><div class="text-[10px] uppercase tracking-[.2em] text-lime-200 font-black">Nhiệm vụ ${p.questionIndex+1}/${p.questions.length}</div><div class="font-black text-base md:text-xl">🧨 CHUYÊN GIA GỠ MÌN</div></div></div><div class="flex items-center gap-2"><button onclick="toggleMineExpertSound()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Âm thanh"><i class="ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}"></i></button><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-in"></i></button><button onclick="leaveMineExpertToMenu()" class="px-3 py-2 rounded-xl bg-red-500/20 border border-red-300/25 text-red-50 font-black text-xs">THOÁT</button></div></div>
+                    <div class="h-2.5 bg-white/10 rounded-full overflow-hidden flex-shrink-0"><div class="h-full bg-gradient-to-r from-lime-300 via-emerald-300 to-cyan-300 rounded-full transition-all duration-500" style="width:${progress}%"></div></div>
                     <div class="grid grid-cols-1 lg:grid-cols-[minmax(320px,34%)_1fr] gap-3 flex-1 min-h-0">
-                        <aside class="rounded-3xl border border-white/12 bg-black/22 backdrop-blur-xl p-4 md:p-5 flex flex-col min-h-[320px] shadow-[0_20px_50px_rgba(0,0,0,.18)]"><div class="flex items-center gap-3 mb-4">${getAvatarImg(p.contestant.avatarUrl,p.contestant.name,'w-12 h-12 border-2 border-lime-300/60 shadow-lg')}<div class="min-w-0"><div class="font-black text-lg truncate">${mfgEsc(p.contestant.name)}</div><div class="text-xs text-lime-200 truncate">${mfgEsc(p.contestant.subtitle)}</div></div></div><div class="grid grid-cols-3 gap-2 mb-4"><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐÚNG</div><div id="mine-stat-correct" class="text-2xl font-black text-lime-300">${p.correct}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐIỂM</div><div id="mine-stat-score" class="text-2xl font-black text-yellow-300">${p.score}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">TIẾN ĐỘ</div><div id="mine-stat-progress" class="text-2xl font-black text-cyan-300">${progress}%</div></div></div><div id="mine-question-number" class="text-[11px] uppercase tracking-[.17em] text-lime-300 font-black mb-2">Câu ${p.questionIndex+1}</div><div id="mine-question-text" class="rounded-[1.75rem] bg-white/10 border border-white/12 p-4 md:p-5 text-[clamp(22px,2.2vw,34px)] leading-[1.18] font-black flex-1 flex items-center shadow-inner">${mfgEsc(q.text)}</div><div id="mine-expert-status" class="mt-3 text-sm font-bold text-slate-100 min-h-[24px]">${mineExpertStatusHtml(p)}</div><div id="mine-expert-feedback" class="mt-2"></div></aside>
-                        <section id="mine-expert-map" class="mine-expert-map rounded-3xl border-2 border-lime-200/25 min-h-[500px] lg:min-h-[620px] relative">${renderMineExpertMapStage(g,p,false)}</section>
+                        <aside class="rounded-3xl border border-white/12 bg-black/22 backdrop-blur-xl p-4 md:p-5 flex flex-col min-h-[320px] shadow-[0_20px_50px_rgba(0,0,0,.18)]"><div class="flex items-center gap-3 mb-4">${getAvatarImg(p.contestant.avatarUrl,p.contestant.name,'w-12 h-12 border-2 border-lime-300/60 shadow-lg')}<div class="min-w-0"><div class="font-black text-lg truncate">${mfgEsc(p.contestant.name)}</div><div class="text-xs text-lime-200 truncate">${mfgEsc(p.contestant.subtitle)}</div></div></div><div class="grid grid-cols-3 gap-2 mb-4"><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐÚNG</div><div class="text-2xl font-black text-lime-300">${p.correct}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐIỂM</div><div class="text-2xl font-black text-yellow-300">${p.score}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">TIẾN ĐỘ</div><div class="text-2xl font-black text-cyan-300">${progress}%</div></div></div><div class="text-[11px] uppercase tracking-[.17em] text-lime-300 font-black mb-2">Câu ${p.questionIndex+1}</div><div class="rounded-[1.75rem] bg-white/10 border border-white/12 p-4 md:p-5 text-[clamp(22px,2.2vw,34px)] leading-[1.18] font-black flex-1 flex items-center shadow-inner">${mfgEsc(q.text)}</div><div id="mine-expert-status" class="mt-3 text-sm font-bold text-slate-100 min-h-[24px]">${statusText}</div>${feedback}</aside>
+                        <section class="mine-expert-map ${isWrong?'exploding':''} ${isScrolling?'scrolling':''} rounded-3xl border-2 border-lime-200/25 min-h-[500px] lg:min-h-[620px] relative"><div class="mine-map-world ${isScrolling?'scrolling':''}">${mapDecor}<div class="mine-expert-path"></div>${markers}<div class="absolute left-1/2 bottom-3 -translate-x-1/2 px-3 py-1 rounded-full bg-black/28 text-[10px] font-black text-lime-50 border border-white/14 mine-start-badge">🌿 CHẶNG ĐƯỜNG AN TOÀN</div>${answerNodes}${boom}</div>${safe}<div id="mine-expert-character" class="mine-expert-character ${charClass}" style="left:${p.character.x}%;top:${p.character.y}%">${mineExpertSoldierSvg()}</div></section>
                     </div>
                 </div></div>`;
         }
@@ -3746,7 +3630,6 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const g=ensureMineExpertState();
             if(g.view==='config'||!g.play){mount.innerHTML=renderMineExpertConfig(g);return;}
             if(g.play.status==='finished'){mount.innerHTML=renderMineExpertFinished(g,g.play);return;}
-            mineExpertEnsureRoundState(g.play);
             mount.innerHTML=renderMineExpertPlay(g,g.play);
             setTimeout(()=>window.updateInteractiveGameFullscreenButtons?.(),0);
         };
