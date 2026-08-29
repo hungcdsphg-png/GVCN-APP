@@ -3230,6 +3230,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         const MINE_EXPERT_FALLBACK_POSITIONS = [
             {x:20,y:27}, {x:76,y:25}, {x:23,y:67}, {x:78,y:68}
         ];
+        const MINE_EXPERT_KEYS = ['Q','W','A','S'];
 
         function mineExpertDistance(a,b){
             if(!a||!b)return 999;
@@ -3322,8 +3323,39 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             window.mineExpertTimers = [];
         }
 
+        function mineExpertIsTypingTarget(target) {
+            if (!target) return false;
+            const tag = String(target.tagName || '').toLowerCase();
+            return tag === 'input' || tag === 'textarea' || tag === 'select' || !!target.isContentEditable;
+        }
+
+        function mineExpertInstallKeyboard() {
+            if (window.mineExpertKeyHandler) document.removeEventListener('keydown', window.mineExpertKeyHandler, true);
+            window.mineExpertKeyHandler = function(event) {
+                if (!event || event.repeat || mineExpertIsTypingTarget(event.target)) return;
+                if (state.activeGame !== 'mine-expert') return;
+                const g = ensureMineExpertState(), p = g.play;
+                if (g.view !== 'play' || !p || p.status !== 'playing' || p.phase !== 'answering') return;
+                const key = String(event.key || '').toUpperCase();
+                const index = MINE_EXPERT_KEYS.indexOf(key);
+                if (index < 0) return;
+                event.preventDefault();
+                event.stopPropagation();
+                window.submitMineExpertAnswer(index);
+            };
+            document.addEventListener('keydown', window.mineExpertKeyHandler, true);
+        }
+
+        function mineExpertRemoveKeyboard() {
+            if (window.mineExpertKeyHandler) {
+                document.removeEventListener('keydown', window.mineExpertKeyHandler, true);
+                window.mineExpertKeyHandler = null;
+            }
+        }
+
         window.cleanupMineExpertGame = function(exitFullscreen = false) {
             mineExpertClearTimers();
+            mineExpertRemoveKeyboard();
             window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
             if (exitFullscreen && window.isInteractiveGameFullscreen?.()) window.exitInteractiveGameFullscreen();
         };
@@ -3432,7 +3464,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 attempts:0, phase:'answering', selectedIndex:null, feedback:null, explosionIndex:null,
                 character:start, previousPosition:null, answerPositions:mineExpertGenerateAnswerPositions(start), mapStep:0, startedAt:Date.now()
             };
-            g.view='play'; saveData(); window.initMineExpertGame();
+            g.view='play'; saveData(); mineExpertInstallKeyboard(); window.initMineExpertGame();
             setTimeout(()=>window.enterInteractiveGameFullscreen?.(),70);
         };
 
@@ -3569,19 +3601,20 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const answerNodes=showAnswers?q.options.map((o,i)=>{
                 const pos=p.answerPositions[i]||MINE_EXPERT_FALLBACK_POSITIONS[i];let cls='';
                 if(p.selectedIndex===i)cls+=' selected';if(isCorrect&&i===correctIdx)cls+=' correct';if(isWrong&&i===p.selectedIndex)cls+=' wrong';
-                return `<button class="mine-answer-node${cls}" style="left:${pos.x}%;top:${pos.y}%" onclick="submitMineExpertAnswer(${i})" ${p.phase!=='answering'?'disabled':''} aria-label="${String.fromCharCode(65+i)}. ${mfgEsc(o.text)}"><span class="mine-water-bubble"><span class="mine-bubble-letter">${String.fromCharCode(65+i)}</span></span><span class="mine-answer-caption">${mfgEsc(o.text)}</span></button>`;
+                const keyLabel=MINE_EXPERT_KEYS[i]||String.fromCharCode(65+i);
+                return `<button class="mine-answer-node${cls}" style="left:${pos.x}%;top:${pos.y}%" onclick="submitMineExpertAnswer(${i})" ${p.phase!=='answering'?'disabled':''} aria-label="Phím ${keyLabel}: ${mfgEsc(o.text)}"><span class="mine-water-bubble"><span class="mine-bubble-letter">${keyLabel}</span></span><span class="mine-answer-caption">${mfgEsc(o.text)}</span></button>`;
             }).join(''):'';
             const safe=isCorrect?`<div class="mine-safe-ring" style="left:${p.character.x}%;top:${p.character.y}%"></div>`:'';
             const boom=isWrong&&Number.isInteger(p.explosionIndex)?(()=>{const pos=p.answerPositions[p.explosionIndex]||MINE_EXPERT_FALLBACK_POSITIONS[p.explosionIndex];return `<div class="mine-explosion" style="left:${pos.x}%;top:${pos.y}%"><div class="blast"></div><div class="smoke"></div></div>`})():'';
             const feedback=isCorrect?`<div class="mine-result-pop rounded-2xl bg-emerald-500/14 border border-emerald-300/35 p-4 text-emerald-100 shadow-lg"><div class="font-black text-xl">✅ An toàn!</div><div class="text-sm mt-1">Đúng rồi — chuẩn bị sang chặng tiếp theo.</div></div>`:isWrong?`<div class="mine-result-pop rounded-2xl bg-rose-500/15 border border-rose-300/35 p-4 text-rose-100 shadow-lg"><div class="font-black text-xl">💥 Chưa đúng!</div><div class="text-sm mt-1">Chuyên gia sẽ tự chạy về vị trí cũ để thử lại.</div></div>`:'';
-            const statusText=isMoving?'🏃 Đang chạy tới bong bóng đã chọn...':isWrong?'💥 Đã kích hoạt mìn — chuẩn bị quay lại':isReturning?'↩️ Đang chạy về vị trí cũ...':isCorrect?'✅ Đứng lại an toàn tại chỗ — chuẩn bị cuộn bản đồ':isScrolling?'🌿 Bản đồ đang cuộn xuống để sang chặng mới...':'💧 Chọn một bong bóng đáp án trên bản đồ';
+            const statusText=isMoving?'🏃 Đang chạy tới bong bóng đã chọn...':isWrong?'💥 Đã kích hoạt mìn — chuẩn bị quay lại':isReturning?'↩️ Đang chạy về vị trí cũ...':isCorrect?'✅ Đứng lại an toàn tại chỗ — chuẩn bị cuộn bản đồ':isScrolling?'🌿 Bản đồ đang cuộn xuống để sang chặng mới...':'⌨️ Bấm Q / W / A / S hoặc chọn bong bóng đáp án';
             const charClass=isMoving?'moving':isReturning?'returning':'waiting';
             return `<div class="mine-expert-shell w-full min-h-full h-full overflow-auto custom-scrollbar rounded-[1.5rem] p-3 md:p-4">
                 <div class="max-w-[1520px] mx-auto min-h-full flex flex-col gap-3">
                     <div class="flex items-center justify-between gap-2 rounded-2xl border border-white/12 bg-black/18 backdrop-blur-md p-2.5 md:p-3 flex-shrink-0"><div class="flex items-center gap-2"><button onclick="backMineExpertToConfig()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 font-black text-xs"><i class="ph-bold ph-arrow-left mr-1"></i> <span class="hidden sm:inline">Về cấu hình</span></button><div><div class="text-[10px] uppercase tracking-[.2em] text-lime-200 font-black">Nhiệm vụ ${p.questionIndex+1}/${p.questions.length}</div><div class="font-black text-base md:text-xl">🧨 CHUYÊN GIA GỠ MÌN</div></div></div><div class="flex items-center gap-2"><button onclick="toggleMineExpertSound()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Âm thanh"><i class="ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}"></i></button><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-in"></i></button><button onclick="leaveMineExpertToMenu()" class="px-3 py-2 rounded-xl bg-red-500/20 border border-red-300/25 text-red-50 font-black text-xs">THOÁT</button></div></div>
                     <div class="h-2.5 bg-white/10 rounded-full overflow-hidden flex-shrink-0"><div class="h-full bg-gradient-to-r from-lime-300 via-emerald-300 to-cyan-300 rounded-full transition-all duration-500" style="width:${progress}%"></div></div>
                     <div class="grid grid-cols-1 lg:grid-cols-[minmax(320px,34%)_1fr] gap-3 flex-1 min-h-0">
-                        <aside class="rounded-3xl border border-white/12 bg-black/22 backdrop-blur-xl p-4 md:p-5 flex flex-col min-h-[320px] shadow-[0_20px_50px_rgba(0,0,0,.18)]"><div class="flex items-center gap-3 mb-4">${getAvatarImg(p.contestant.avatarUrl,p.contestant.name,'w-12 h-12 border-2 border-lime-300/60 shadow-lg')}<div class="min-w-0"><div class="font-black text-lg truncate">${mfgEsc(p.contestant.name)}</div><div class="text-xs text-lime-200 truncate">${mfgEsc(p.contestant.subtitle)}</div></div></div><div class="grid grid-cols-3 gap-2 mb-4"><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐÚNG</div><div class="text-2xl font-black text-lime-300">${p.correct}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐIỂM</div><div class="text-2xl font-black text-yellow-300">${p.score}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">TIẾN ĐỘ</div><div class="text-2xl font-black text-cyan-300">${progress}%</div></div></div><div class="text-[11px] uppercase tracking-[.17em] text-lime-300 font-black mb-2">Câu ${p.questionIndex+1}</div><div class="rounded-[1.75rem] bg-white/10 border border-white/12 p-4 md:p-5 text-[clamp(22px,2.2vw,34px)] leading-[1.18] font-black flex-1 flex items-center shadow-inner">${mfgEsc(q.text)}</div><div id="mine-expert-status" class="mt-3 text-sm font-bold text-slate-100 min-h-[24px]">${statusText}</div>${feedback}</aside>
+                        <aside class="rounded-3xl border border-white/12 bg-black/22 backdrop-blur-xl p-4 md:p-5 flex flex-col min-h-[320px] shadow-[0_20px_50px_rgba(0,0,0,.18)]"><div class="flex items-center gap-3 mb-4">${getAvatarImg(p.contestant.avatarUrl,p.contestant.name,'w-12 h-12 border-2 border-lime-300/60 shadow-lg')}<div class="min-w-0"><div class="font-black text-lg truncate">${mfgEsc(p.contestant.name)}</div><div class="text-xs text-lime-200 truncate">${mfgEsc(p.contestant.subtitle)}</div></div></div><div class="grid grid-cols-3 gap-2 mb-4"><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐÚNG</div><div class="text-2xl font-black text-lime-300">${p.correct}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐIỂM</div><div class="text-2xl font-black text-yellow-300">${p.score}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">TIẾN ĐỘ</div><div class="text-2xl font-black text-cyan-300">${progress}%</div></div></div><div class="text-[11px] uppercase tracking-[.17em] text-lime-300 font-black mb-2">Câu ${p.questionIndex+1}</div><div class="rounded-[1.75rem] bg-white/10 border border-white/12 p-4 md:p-5 text-[clamp(22px,2.2vw,34px)] leading-[1.18] font-black flex-1 flex items-center shadow-inner">${mfgEsc(q.text)}</div><div id="mine-expert-status" class="mt-3 text-sm font-bold text-slate-100 min-h-[24px]">${statusText}</div>${p.phase==='answering'?`<div class="mt-2 flex flex-wrap gap-1.5 text-[10px] font-black text-white/90"><span class="px-2 py-1 rounded-lg bg-white/10 border border-white/10">Q = lựa chọn 1</span><span class="px-2 py-1 rounded-lg bg-white/10 border border-white/10">W = lựa chọn 2</span><span class="px-2 py-1 rounded-lg bg-white/10 border border-white/10">A = lựa chọn 3</span><span class="px-2 py-1 rounded-lg bg-white/10 border border-white/10">S = lựa chọn 4</span></div>`:''}${feedback}</aside>
                         <section class="mine-expert-map ${isWrong?'exploding':''} ${isScrolling?'scrolling':''} rounded-3xl border-2 border-lime-200/25 min-h-[500px] lg:min-h-[620px] relative"><div class="mine-bg-layer ${isScrolling?'scrolling':''}" aria-hidden="true"></div><div class="mine-map-world ${isScrolling?'scrolling':''}">${mapDecor}<div class="mine-expert-path"></div>${markers}<div class="absolute left-1/2 bottom-3 -translate-x-1/2 px-3 py-1 rounded-full bg-black/28 text-[10px] font-black text-lime-50 border border-white/14 mine-start-badge">🌿 CHẶNG ĐƯỜNG AN TOÀN</div>${answerNodes}${boom}</div>${safe}<div id="mine-expert-character" class="mine-expert-character ${charClass}" style="left:${p.character.x}%;top:${p.character.y}%">${mineExpertCharacterMarkup()}</div></section>
                     </div>
                 </div></div>`;
@@ -3595,8 +3628,9 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         window.initMineExpertGame = function() {
             const mount=document.getElementById('game-mount-point'); if(!mount)return;
             const g=ensureMineExpertState();
-            if(g.view==='config'||!g.play){mount.innerHTML=renderMineExpertConfig(g);return;}
-            if(g.play.status==='finished'){mount.innerHTML=renderMineExpertFinished(g,g.play);return;}
+            if(g.view==='config'||!g.play){mineExpertRemoveKeyboard();mount.innerHTML=renderMineExpertConfig(g);return;}
+            if(g.play.status==='finished'){mineExpertRemoveKeyboard();mount.innerHTML=renderMineExpertFinished(g,g.play);return;}
+            mineExpertInstallKeyboard();
             mount.innerHTML=renderMineExpertPlay(g,g.play);
             setTimeout(()=>window.updateInteractiveGameFullscreenButtons?.(),0);
         };
