@@ -7971,7 +7971,9 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 // Độ dịch chuyển chỉ dùng cho hình ảnh. Giới hạn để hai đội luôn còn trong khung hình.
                 const visualWinPoints = Math.max(1, parseInt(kState.settings.pointsToWin) || 7);
                 const safeRopeRatio = Math.max(-1, Math.min(1, p.ropeOffset / visualWinPoints));
-                const shiftPercent = safeRopeRatio * 12;
+                // Chỉ dùng cho HIỂN THỊ sân kéo co: ở ngưỡng thắng hiện tại, nơ giữa dây đi tới vạch thắng tương ứng.
+                const visualWinLineOffset = 12;
+                const shiftPercent = safeRopeRatio * visualWinLineOffset;
                 const isBoatGame = kState.settings.gameType === 'boat';
                 const visualWinner = p.status === 'finished'
                     ? (kState.settings.playMode === 'milestone'
@@ -8035,9 +8037,20 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                         <div class="keoco-h1-stage ${tugSceneClass} ${recentPullClass} ${recentWrongClass} rounded-[1.5rem] relative h-full min-h-[250px] overflow-hidden flex flex-col items-center justify-center border-4 border-sky-200 shadow-inner flex-[1.5] lg:flex-none lg:w-[35%] xl:w-[40%] bg-gradient-to-b from-sky-200 via-sky-50 to-emerald-100">
                             <style>
                                 /* H1 được giữ NGUYÊN KHỐI: 2 đội + toàn bộ sợi dây là một ảnh duy nhất. */
-                                .keoco-h1-stage{isolation:isolate;--keoco-shift:${shiftPercent}%;--keoco-tilt:${(safeRopeRatio * 2.4).toFixed(2)}deg}
+                                .keoco-h1-stage{isolation:isolate;--keoco-shift:${shiftPercent}%;--keoco-tilt:${(safeRopeRatio * 2.4).toFixed(2)}deg;--keoco-win-left:${50-visualWinLineOffset}%;--keoco-win-right:${50+visualWinLineOffset}%}
                                 .keoco-h1-stage:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 38%,rgba(255,255,255,.92),rgba(224,242,254,.72) 38%,rgba(187,247,208,.62) 70%,rgba(74,222,128,.32));z-index:0}
                                 .keoco-h1-ground{position:absolute;left:-8%;right:-8%;bottom:-6%;height:35%;border-radius:50% 50% 0 0;background:radial-gradient(ellipse at 50% 0%,rgba(255,255,255,.45),transparent 55%),linear-gradient(180deg,#86efac,#4ade80);opacity:.8;z-index:1;box-shadow:inset 0 10px 24px rgba(255,255,255,.22)}
+                                /* Vạch sân cố định: KHÔNG nằm trong khối ảnh H1 nên tuyệt đối không dịch chuyển theo hai đội. */
+                                .keoco-h1-court-line{position:absolute;top:15%;bottom:11%;z-index:6;pointer-events:none;transform:translateX(-50%)}
+                                .keoco-h1-court-line.center{left:50%;width:3px;background:linear-gradient(180deg,rgba(255,255,255,.15),#fff 12%,#fff 88%,rgba(255,255,255,.15));box-shadow:0 0 5px rgba(255,255,255,.95),0 0 14px rgba(250,204,21,.45)}
+                                .keoco-h1-court-line.win{width:2px;border-left:2px dashed rgba(250,204,21,.98);filter:drop-shadow(0 0 4px rgba(250,204,21,.72))}
+                                .keoco-h1-court-line.win.left{left:var(--keoco-win-left)}
+                                .keoco-h1-court-line.win.right{left:var(--keoco-win-right)}
+                                .keoco-h1-line-label{position:absolute;top:45px;z-index:8;pointer-events:none;transform:translateX(-50%);padding:3px 7px;border-radius:999px;font-size:clamp(8px,.72vw,10px);font-weight:1000;letter-spacing:.04em;white-space:nowrap;backdrop-filter:blur(4px);box-shadow:0 4px 10px rgba(15,23,42,.10)}
+                                .keoco-h1-line-label.center{left:50%;background:rgba(255,255,255,.92);color:#334155;border:1px solid rgba(255,255,255,.98)}
+                                .keoco-h1-line-label.win-left{left:var(--keoco-win-left);background:rgba(254,249,195,.94);color:#92400e;border:1px solid rgba(250,204,21,.68)}
+                                .keoco-h1-line-label.win-right{left:var(--keoco-win-right);background:rgba(254,249,195,.94);color:#92400e;border:1px solid rgba(250,204,21,.68)}
+                                .keoco-h1-center-foot{position:absolute;left:50%;bottom:13%;z-index:7;transform:translate(-50%,50%);width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid #facc15;box-shadow:0 0 0 4px rgba(255,255,255,.34),0 0 14px rgba(250,204,21,.72);pointer-events:none}
                                 .keoco-h1-photo-wrap{position:relative;z-index:10;width:100%;height:100%;min-height:220px;display:flex;align-items:center;justify-content:center;transform-origin:50% 72%;will-change:transform;transform:translateX(var(--keoco-shift)) rotate(var(--keoco-tilt));animation:keocoWholeBalanced .78s ease-in-out infinite alternate;transition:transform .72s cubic-bezier(.22,1,.36,1)}
                                 .keoco-h1-photo{display:block;width:min(98%,920px);height:auto;max-height:88%;object-fit:contain;object-position:center;user-select:none;-webkit-user-drag:none;pointer-events:none;filter:drop-shadow(0 14px 12px rgba(15,23,42,.24));transform-origin:50% 64%;animation:keocoWholeTension .62s ease-in-out infinite alternate}
                                 .keoco-h1-stage.blue-leading .keoco-h1-photo-wrap{animation:keocoWholeBlueLead .52s ease-in-out infinite alternate}
@@ -8055,7 +8068,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                                 .keoco-h1-spark{position:absolute;z-index:18;opacity:0;pointer-events:none;font-size:clamp(18px,2vw,30px);filter:drop-shadow(0 3px 4px rgba(0,0,0,.14))}
                                 .keoco-h1-spark.s1{left:13%;top:22%}.keoco-h1-spark.s2{left:30%;top:13%}.keoco-h1-spark.s3{right:13%;top:22%}.keoco-h1-spark.s4{right:30%;top:13%}
                                 .keoco-h1-stage.blue-win .keoco-h1-spark.s1,.keoco-h1-stage.blue-win .keoco-h1-spark.s2,.keoco-h1-stage.red-win .keoco-h1-spark.s3,.keoco-h1-stage.red-win .keoco-h1-spark.s4{opacity:1;animation:keocoWholeSpark .62s ease-in-out infinite alternate}
-                                @keyframes keocoWholeBalanced{0%{transform:translateX(calc(var(--keoco-shift) - 1.1%)) rotate(calc(var(--keoco-tilt) - .35deg)) translateY(1px)}100%{transform:translateX(calc(var(--keoco-shift) + 1.1%)) rotate(calc(var(--keoco-tilt) + .35deg)) translateY(-2px)}}
+                                @keyframes keocoWholeBalanced{0%,100%{transform:translateX(var(--keoco-shift)) rotate(var(--keoco-tilt)) translateY(0)}25%{transform:translateX(calc(var(--keoco-shift) - .75%)) rotate(calc(var(--keoco-tilt) - .28deg)) translateY(1px)}50%{transform:translateX(var(--keoco-shift)) rotate(var(--keoco-tilt)) translateY(-2px)}75%{transform:translateX(calc(var(--keoco-shift) + .75%)) rotate(calc(var(--keoco-tilt) + .28deg)) translateY(1px)}}
                                 @keyframes keocoWholeTension{0%{transform:scaleX(.997) scaleY(1)}100%{transform:scaleX(1.006) scaleY(.998)}}
                                 @keyframes keocoWholeBlueLead{0%{transform:translateX(calc(var(--keoco-shift) + .8%)) rotate(calc(var(--keoco-tilt) - .2deg)) translateY(1px)}100%{transform:translateX(calc(var(--keoco-shift) - 1.7%)) rotate(calc(var(--keoco-tilt) - .8deg)) translateY(-3px)}}
                                 @keyframes keocoWholeRedLead{0%{transform:translateX(calc(var(--keoco-shift) - .8%)) rotate(calc(var(--keoco-tilt) + .2deg)) translateY(1px)}100%{transform:translateX(calc(var(--keoco-shift) + 1.7%)) rotate(calc(var(--keoco-tilt) + .8deg)) translateY(-3px)}}
@@ -8068,11 +8081,19 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                                 @keyframes keocoWholeCelebrate{0%{transform:scale(1)}100%{transform:scale(1.018)}}
                                 @keyframes keocoWholeSpark{0%{transform:translateY(2px) scale(.82) rotate(-8deg)}100%{transform:translateY(-8px) scale(1.15) rotate(8deg)}}
                                 @keyframes keocoEndOverlay{from{opacity:0}to{opacity:1}}
-                                @media(max-width:900px){.keoco-h1-photo{width:100%;max-height:82%}.keoco-h1-team-label{top:6px;padding:5px 8px}}
+                                @media(max-width:900px){.keoco-h1-photo{width:100%;max-height:82%}.keoco-h1-team-label{top:6px;padding:5px 8px}.keoco-h1-line-label{top:38px;padding:2px 5px;font-size:8px}.keoco-h1-court-line{top:14%;bottom:10%}}
                                 @media(prefers-reduced-motion:reduce){.keoco-h1-photo-wrap,.keoco-h1-photo,.keoco-h1-spark{animation-duration:.01ms!important;animation-iteration-count:1!important}}
                             </style>
 
                             <div class="keoco-h1-ground"></div>
+                            <!-- Vạch thi đấu là thành phần của NỀN, đứng yên tuyệt đối. Nơ giữa dây H1 khởi đầu đúng tại vạch giữa. -->
+                            <div class="keoco-h1-court-line win left" aria-hidden="true"></div>
+                            <div class="keoco-h1-court-line center" aria-hidden="true"></div>
+                            <div class="keoco-h1-court-line win right" aria-hidden="true"></div>
+                            <div class="keoco-h1-center-foot" aria-hidden="true"></div>
+                            <div class="keoco-h1-line-label win-left">VẠCH THẮNG</div>
+                            <div class="keoco-h1-line-label center">TRUNG TÂM</div>
+                            <div class="keoco-h1-line-label win-right">VẠCH THẮNG</div>
                             <div class="keoco-h1-team-label blue">🔵 ${escapeHtmlAttr(kState.settings.team1Name)}</div>
                             <div class="keoco-h1-team-label red">🔴 ${escapeHtmlAttr(kState.settings.team2Name)}</div>
                             <span class="keoco-h1-spark s1">⭐</span><span class="keoco-h1-spark s2">✨</span><span class="keoco-h1-spark s3">⭐</span><span class="keoco-h1-spark s4">✨</span>
