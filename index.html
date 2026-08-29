@@ -1329,6 +1329,36 @@
 @media(max-width:1100px){.mine-answer-node{width:min(28%,172px);min-width:110px}.mine-expert-character{width:86px;height:110px}}
 @media(max-width:900px){.mine-answer-node{width:32%;min-width:102px;padding:8px 9px;min-height:58px}.mine-answer-node .mine-letter{width:32px;height:32px;min-width:32px;font-size:16px}.mine-expert-character{width:76px;height:98px}}
 @media(max-width:640px){.mine-answer-node{width:38%;min-width:0;border-radius:16px}.mine-answer-node .mine-answer-text{font-size:11px}.mine-answer-node .mine-letter{width:28px;height:28px;min-width:28px;font-size:14px}.mine-expert-character{width:66px;height:86px}.mine-safe-ring{width:92px;height:92px}.mine-expert-map .mine-map-grid{inset:24% 3% 8%;background-size:42px 42px}}
+/* ---- Gameplay bản đồ liên tục + bong bóng nước 3D ---- */
+.mine-expert-map{min-height:500px;contain:layout paint;}
+.mine-map-stage{position:absolute;inset:0;z-index:1;transform:translate3d(0,0,0) scale(1);opacity:1;transition:transform .62s cubic-bezier(.22,.78,.22,1),opacity .55s ease,filter .55s ease;will-change:transform,opacity,filter;}
+.mine-map-stage.mine-scroll-out{transform:translate3d(0,30%,0) scale(.965);opacity:.06;filter:blur(2px) saturate(.9);}
+.mine-map-stage.mine-scroll-in{animation:mineZoneEnter .62s cubic-bezier(.18,.82,.24,1) both;}
+.mine-expert-map.mine-camera-scrolling{box-shadow:inset 0 1px rgba(255,255,255,.55),inset 0 -18px 40px rgba(9,54,17,.32),0 25px 65px rgba(0,0,0,.25),0 0 0 4px rgba(190,242,100,.08);}
+.mine-answer-node{width:152px!important;min-width:104px!important;min-height:94px!important;background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;border-radius:0!important;padding:0!important;color:#10251a!important;text-align:center!important;display:flex!important;flex-direction:column!important;justify-content:flex-start!important;gap:6px!important;overflow:visible!important;}
+.mine-answer-node:hover:not(:disabled){transform:translate(-50%,-50%) scale(1.045)!important;box-shadow:none!important;border:0!important;}
+.mine-water-bubble{position:relative;width:60px;height:60px;min-width:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 23%,rgba(255,255,255,.96) 0 7%,rgba(255,255,255,.38) 8% 18%,rgba(191,239,255,.52) 33%,rgba(77,196,235,.28) 61%,rgba(8,145,178,.38) 100%);border:1.5px solid rgba(224,247,255,.88);box-shadow:inset -9px -12px 18px rgba(14,116,144,.18),inset 8px 8px 15px rgba(255,255,255,.55),0 12px 20px rgba(7,78,91,.22),0 0 0 4px rgba(255,255,255,.08);animation:mineBubbleFloat 2.5s ease-in-out infinite;animation-delay:var(--bubble-delay,0s);transition:transform .2s ease,filter .2s ease,box-shadow .2s ease;}
+.mine-water-bubble:before{content:"";position:absolute;left:14px;top:9px;width:18px;height:10px;border-radius:50%;background:rgba(255,255,255,.78);transform:rotate(-28deg);filter:blur(.2px);}
+.mine-water-bubble:after{content:"";position:absolute;right:9px;bottom:10px;width:9px;height:16px;border-radius:50%;background:rgba(125,211,252,.28);transform:rotate(28deg);}
+.mine-answer-node .mine-letter{position:relative;z-index:2;width:auto!important;height:auto!important;min-width:0!important;border-radius:0!important;background:none!important;color:#063e55!important;font-size:27px!important;font-weight:1000!important;box-shadow:none!important;text-shadow:0 1px 0 rgba(255,255,255,.9),0 2px 8px rgba(14,116,144,.16);}
+.mine-answer-node .mine-answer-text{max-width:150px;padding:4px 8px;border-radius:10px;background:rgba(255,255,255,.82);border:1px solid rgba(255,255,255,.72);box-shadow:0 6px 14px rgba(0,0,0,.12);color:#12351f!important;font-size:clamp(11px,.95vw,14px)!important;font-weight:900!important;line-height:1.14!important;text-shadow:none!important;overflow-wrap:anywhere;}
+.mine-answer-node.selected .mine-water-bubble{transform:scale(1.08);filter:saturate(1.15);box-shadow:inset -9px -12px 18px rgba(14,116,144,.18),inset 8px 8px 15px rgba(255,255,255,.55),0 0 0 6px rgba(250,204,21,.25),0 14px 24px rgba(0,0,0,.22);}
+.mine-answer-node.correct .mine-water-bubble{background:radial-gradient(circle at 30% 23%,#fff 0 8%,rgba(255,255,255,.55) 12%,rgba(187,247,208,.72) 34%,rgba(74,222,128,.55) 66%,rgba(21,128,61,.62) 100%);border-color:#bbf7d0;box-shadow:0 0 0 7px rgba(34,197,94,.2),0 0 30px rgba(74,222,128,.5),inset 8px 8px 15px rgba(255,255,255,.6);animation:mineBubbleCorrect .65s ease both;}
+.mine-answer-node.wrong{animation:none!important;}
+.mine-answer-node.wrong .mine-water-bubble{background:radial-gradient(circle at 30% 23%,#fff 0 7%,rgba(255,255,255,.42) 11%,rgba(254,205,211,.72) 36%,rgba(251,113,133,.52) 68%,rgba(190,18,60,.62) 100%);border-color:#fecdd3;animation:mineBubbleWrong .46s ease both;box-shadow:0 0 0 6px rgba(244,63,94,.18),0 10px 24px rgba(0,0,0,.22);}
+.mine-answer-node:disabled{pointer-events:none;}
+.mine-answer-node:disabled .mine-water-bubble{animation-play-state:paused;}
+.mine-expert-character{transition:left .82s cubic-bezier(.22,.72,.23,1),top .82s cubic-bezier(.22,.72,.23,1),transform .22s ease!important;will-change:left,top;}
+.mine-expert-character.returning .mine-expert-soldier{transform:scaleX(-1);}
+.mine-map-scroll-flash{position:absolute;inset:0;z-index:50;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(255,255,255,.18),transparent);transform:translateY(-120%);animation:mineScrollFlash .7s ease both;}
+@keyframes mineBubbleFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-5px) scale(1.018)}}
+@keyframes mineBubbleCorrect{0%{transform:scale(.92)}45%{transform:scale(1.18)}100%{transform:scale(1.04)}}
+@keyframes mineBubbleWrong{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px) rotate(-4deg)}75%{transform:translateX(5px) rotate(4deg)}}
+@keyframes mineZoneEnter{0%{transform:translate3d(0,-28%,0) scale(1.035);opacity:.05;filter:blur(2px)}100%{transform:translate3d(0,0,0) scale(1);opacity:1;filter:blur(0)}}
+@keyframes mineScrollFlash{0%{transform:translateY(-120%);opacity:0}25%{opacity:.7}100%{transform:translateY(120%);opacity:0}}
+@media(max-width:900px){.mine-answer-node{width:132px!important;min-width:92px!important;min-height:86px!important}.mine-water-bubble{width:54px;height:54px;min-width:54px}.mine-answer-node .mine-letter{font-size:23px!important}.mine-answer-node .mine-answer-text{max-width:128px;font-size:11px!important}}
+@media(max-width:640px){.mine-answer-node{width:112px!important;min-width:82px!important;min-height:78px!important}.mine-water-bubble{width:48px;height:48px;min-width:48px}.mine-answer-node .mine-letter{font-size:20px!important}.mine-answer-node .mine-answer-text{max-width:108px;font-size:10px!important;padding:3px 5px}.mine-expert-map{min-height:480px}}
+@media(prefers-reduced-motion:reduce){.mine-map-stage,.mine-water-bubble{animation-duration:.01ms!important;transition-duration:.15s!important}}
 @media(prefers-reduced-motion:reduce){.mine-expert-character,.mine-answer-node{transition-duration:.15s!important}.mine-expert-character *,.mine-explosion *,.mine-expert-map{animation-duration:.01ms!important;animation-iteration-count:1!important}}
 </style>
 
@@ -3254,10 +3284,11 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         // - Không tạo database/API mới; chỉ lưu trong state hiện tại.
         // =============================================================
         window.mineExpertTimers = window.mineExpertTimers || [];
-        const MINE_EXPERT_START_POS = { x: 50, y: 91 };
-        const MINE_EXPERT_POSITIONS = [
-            {x:20,y:27}, {x:76,y:24}, {x:23,y:68}, {x:78,y:68}
-        ];
+        const MINE_EXPERT_START_POS = { x: 50, y: 90 };
+        const MINE_EXPERT_PHASE = Object.freeze({
+            IDLE:'IDLE', RUNNING:'RUNNING', EXPLODING:'EXPLODING', RETURNING:'RETURNING',
+            SCROLLING:'SCROLLING', NEXT_QUESTION:'NEXT_QUESTION', FINISHED:'FINISHED'
+        });
         const MINE_EXPERT_MARKERS = [
             [9,14],[37,17],[60,12],[91,18],[10,48],[47,48],[66,43],[92,51],[9,79],[42,78],[62,83],[91,82]
         ];
@@ -3425,6 +3456,79 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             return selected;
         }
 
+
+        function mineExpertRandom(min,max){ return min + Math.random()*(max-min); }
+        function mineExpertDistance(a,b){ return Math.hypot((a.x-b.x)*1.05,(a.y-b.y)*1.25); }
+        function mineExpertGenerateStart(questionIndex=0) {
+            const wobble=((Number(questionIndex)||0)%2===0?1:-1)*mineExpertRandom(0,5);
+            return {x:Math.max(42,Math.min(58,50+wobble)),y:mineExpertRandom(88,91)};
+        }
+        function mineExpertGenerateAnswerPositions(start) {
+            const pts=[]; let tries=0;
+            while(pts.length<4 && tries<420){
+                tries++;
+                const p={x:mineExpertRandom(14,86),y:mineExpertRandom(20,70)};
+                if(mineExpertDistance(p,start)<27) continue;
+                if(pts.some(other=>mineExpertDistance(p,other)<27)) continue;
+                pts.push(p);
+            }
+            if(pts.length<4){
+                const fallback=[{x:17,y:24},{x:48,y:22},{x:82,y:28},{x:24,y:57},{x:58,y:51},{x:83,y:62},{x:42,y:70},{x:68,y:72}].sort(()=>Math.random()-.5);
+                for(const p of fallback){ if(pts.length>=4)break; if(mineExpertDistance(p,start)>=25 && !pts.some(o=>mineExpertDistance(p,o)<24))pts.push({...p}); }
+            }
+            return pts.slice(0,4).sort(()=>Math.random()-.5);
+        }
+        function mineExpertPrepareRound(p, advanceZone=true) {
+            p.questionStart=mineExpertGenerateStart(p.questionIndex);
+            p.character={...p.questionStart};
+            p.answerPositions=mineExpertGenerateAnswerPositions(p.questionStart);
+            p.selectedIndex=null; p.feedback=null; p.explosionIndex=null;
+            p.phase=MINE_EXPERT_PHASE.IDLE;
+            if(advanceZone) p.zoneSeed=(Number(p.zoneSeed)||0)+1;
+        }
+        function mineExpertEnsureRoundState(p) {
+            if(!p)return;
+            const legacy={answering:MINE_EXPERT_PHASE.IDLE,moving:MINE_EXPERT_PHASE.RUNNING,result:MINE_EXPERT_PHASE.IDLE,finished:MINE_EXPERT_PHASE.FINISHED};
+            if(legacy[p.phase]) p.phase=legacy[p.phase];
+            if(!Object.values(MINE_EXPERT_PHASE).includes(p.phase)) p.phase=MINE_EXPERT_PHASE.IDLE;
+            if(!p.questionStart) p.questionStart={...MINE_EXPERT_START_POS};
+            if(!Array.isArray(p.answerPositions)||p.answerPositions.length!==4) p.answerPositions=mineExpertGenerateAnswerPositions(p.questionStart);
+            if(!p.character) p.character={...p.questionStart};
+            if(typeof p.zoneSeed!=='number') p.zoneSeed=1;
+        }
+        function mineExpertLater(fn,ms){ const t=setTimeout(fn,ms); window.mineExpertTimers.push(t); return t; }
+        function mineExpertStatusHtml(p){
+            if(!p)return '';
+            if(p.phase===MINE_EXPERT_PHASE.RUNNING)return '🏃 Đang chạy tới đáp án...';
+            if(p.phase===MINE_EXPERT_PHASE.EXPLODING)return '💥 Chưa an toàn! Mìn vừa phát nổ...';
+            if(p.phase===MINE_EXPERT_PHASE.RETURNING)return '↩️ Chuyên gia đang chạy về điểm xuất phát...';
+            if(p.phase===MINE_EXPERT_PHASE.SCROLLING||p.phase===MINE_EXPERT_PHASE.NEXT_QUESTION)return '🗺️ Đang tiến sâu vào khu vực mới...';
+            return '👉 Chọn một bong bóng đáp án trên bản đồ';
+        }
+        function mineExpertSetAnswerLock(locked){ document.querySelectorAll('#mine-expert-map .mine-answer-node').forEach(el=>el.disabled=!!locked); }
+        function mineExpertSetStatus(html){ const el=document.getElementById('mine-expert-status');if(el)el.innerHTML=html; }
+        function mineExpertSetFeedback(html=''){const el=document.getElementById('mine-expert-feedback');if(el)el.innerHTML=html;}
+        function mineExpertSetCharacter(pos,moving=false,returning=false){
+            const ch=document.getElementById('mine-expert-character'); if(!ch)return;
+            ch.classList.toggle('moving',!!moving); ch.classList.toggle('returning',!!returning);
+            requestAnimationFrame(()=>{ch.style.left=`${pos.x}%`;ch.style.top=`${pos.y}%`;});
+        }
+        function mineExpertAddExplosion(index){
+            const p=ensureMineExpertState().play,pos=p?.answerPositions?.[Number(index)],stage=document.querySelector('#mine-expert-map .mine-map-stage');if(!pos||!stage)return;
+            stage.querySelectorAll('.mine-explosion').forEach(x=>x.remove());
+            stage.insertAdjacentHTML('beforeend',`<div class="mine-explosion" style="left:${pos.x}%;top:${pos.y}%"><div class="blast"></div><div class="smoke"></div></div>`);
+            document.getElementById('mine-expert-map')?.classList.add('exploding');
+        }
+        function mineExpertAddSafeRing(){
+            const p=ensureMineExpertState().play,stage=document.querySelector('#mine-expert-map .mine-map-stage');if(!p||!stage)return;
+            stage.querySelectorAll('.mine-safe-ring').forEach(x=>x.remove());
+            stage.insertAdjacentHTML('beforeend',`<div class="mine-safe-ring" style="left:${p.character.x}%;top:${p.character.y}%"></div>`);
+        }
+        function mineExpertClearTransientFx(){
+            const map=document.getElementById('mine-expert-map'); map?.classList.remove('exploding','mine-camera-scrolling');
+            map?.querySelectorAll('.mine-explosion,.mine-safe-ring,.mine-map-scroll-flash').forEach(x=>x.remove());
+        }
+
         window.startMineExpertGame = function() {
             const g=ensureMineExpertState(), contestant=mineExpertContestant();
             if(!contestant) return showToast('Hãy chọn học sinh hoặc đội chơi!', 'error');
@@ -3435,52 +3539,104 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             mineExpertSound('select');
             g.play={
                 status:'playing', contestant, questions:bank, questionIndex:0, correct:0, wrong:0, score:0,
-                attempts:0, phase:'answering', selectedIndex:null, feedback:null, explosionIndex:null,
-                character:{...MINE_EXPERT_START_POS}, startedAt:Date.now()
+                attempts:0, phase:MINE_EXPERT_PHASE.IDLE, selectedIndex:null, feedback:null, explosionIndex:null,
+                character:{...MINE_EXPERT_START_POS}, questionStart:{...MINE_EXPERT_START_POS}, answerPositions:[], zoneSeed:0, startedAt:Date.now()
             };
+            mineExpertPrepareRound(g.play,true);
             g.view='play'; saveData(); window.initMineExpertGame();
             setTimeout(()=>window.enterInteractiveGameFullscreen?.(),70);
         };
 
         window.submitMineExpertAnswer = function(index) {
-            const g=ensureMineExpertState(), p=g.play; index=Number(index);
-            if(!p || p.status!=='playing' || p.phase!=='answering') return;
-            const q=p.questions?.[p.questionIndex], opt=q?.options?.[index]; if(!opt)return;
-            p.phase='moving'; p.selectedIndex=index; p.feedback='moving'; p.attempts++;
-            const pos=MINE_EXPERT_POSITIONS[index] || MINE_EXPERT_START_POS;
-            p.character={...pos}; saveData(); mineExpertSound('select');
-            document.querySelectorAll('.mine-answer-node').forEach((el,i)=>{el.disabled=true;el.classList.toggle('selected',i===index)});
-            const status=document.getElementById('mine-expert-status'); if(status) status.innerHTML='<i class="ph-bold ph-person-simple-run animate-pulse mr-1"></i> Đang chạy tới đáp án...';
-            const ch=document.getElementById('mine-expert-character');
-            if(ch){ ch.classList.add('moving'); ch.style.left=`${pos.x}%`; ch.style.top=`${pos.y}%`; }
-            const t=setTimeout(()=>window.resolveMineExpertAnswer(index),860); window.mineExpertTimers.push(t);
+            const g=ensureMineExpertState(),p=g.play; index=Number(index); mineExpertEnsureRoundState(p);
+            if(!p||p.status!=='playing'||p.phase!==MINE_EXPERT_PHASE.IDLE)return;
+            const q=p.questions?.[p.questionIndex],opt=q?.options?.[index],pos=p.answerPositions?.[index];if(!opt||!pos)return;
+            p.phase=MINE_EXPERT_PHASE.RUNNING;p.selectedIndex=index;p.feedback='moving';p.attempts++;p.character={...pos};saveData();mineExpertSound('select');
+            mineExpertSetAnswerLock(true);
+            document.querySelectorAll('#mine-expert-map .mine-answer-node').forEach((el,i)=>el.classList.toggle('selected',i===index));
+            mineExpertSetStatus('<i class="ph-bold ph-person-simple-run animate-pulse mr-1"></i> Đang chạy tới đáp án...');
+            mineExpertSetFeedback('');mineExpertSetCharacter(pos,true,false);
+            mineExpertLater(()=>window.resolveMineExpertAnswer(index),840);
         };
 
         window.resolveMineExpertAnswer = function(index) {
-            const g=ensureMineExpertState(),p=g.play;if(!p||p.status!=='playing'||p.phase!=='moving')return;
-            const q=p.questions?.[p.questionIndex], opt=q?.options?.[Number(index)]; if(!opt)return;
-            p.phase='result'; p.feedback=opt.isCorrect?'correct':'wrong';
-            if(opt.isCorrect){p.correct++;p.score+=100;mineExpertSound('correct');}
-            else{p.wrong++;p.explosionIndex=Number(index);mineExpertSound('wrong');}
-            saveData(); window.initMineExpertGame();
+            const g=ensureMineExpertState(),p=g.play;index=Number(index);mineExpertEnsureRoundState(p);
+            if(!p||p.status!=='playing'||p.phase!==MINE_EXPERT_PHASE.RUNNING)return;
+            const q=p.questions?.[p.questionIndex],opt=q?.options?.[index];if(!opt)return;
+            mineExpertSetCharacter(p.character,false,false);
+            if(opt.isCorrect){
+                p.phase=MINE_EXPERT_PHASE.NEXT_QUESTION;p.feedback='correct';p.correct++;p.score+=100;saveData();mineExpertSound('correct');
+                const selected=document.querySelector(`#mine-expert-map .mine-answer-node[data-answer-index="${index}"]`);selected?.classList.add('correct');
+                mineExpertAddSafeRing();mineExpertSetStatus('✅ Chính xác! Khu vực này an toàn.');
+                mineExpertSetFeedback('<div class="mine-result-pop rounded-2xl bg-emerald-500/14 border border-emerald-300/35 p-3 text-emerald-100 shadow-lg"><div class="font-black text-lg">✅ AN TOÀN!</div><div class="text-xs mt-1">Chuẩn bị tiến sâu vào khu vực tiếp theo...</div></div>');
+                mineExpertLater(()=>{
+                    if(!g.play||g.play.status!=='playing')return;
+                    if(g.play.questionIndex>=g.play.questions.length-1) window.finishMineExpertGame();
+                    else window.startMineExpertMapScroll();
+                },720);
+            } else {
+                p.phase=MINE_EXPERT_PHASE.EXPLODING;p.feedback='wrong';p.wrong++;p.explosionIndex=index;saveData();mineExpertSound('wrong');
+                document.querySelector(`#mine-expert-map .mine-answer-node[data-answer-index="${index}"]`)?.classList.add('wrong');
+                mineExpertAddExplosion(index);mineExpertSetStatus('💥 Chưa an toàn! Đợi khói tan rồi quay lại thử tiếp.');
+                mineExpertSetFeedback('<div class="mine-result-pop rounded-2xl bg-rose-500/14 border border-rose-300/35 p-3 text-rose-50 shadow-lg"><div class="font-black text-lg">💥 BÙM!</div><div class="text-xs mt-1">Chưa đúng. Chuyên gia sẽ quay về điểm xuất phát để thử lại.</div></div>');
+                mineExpertLater(()=>window.returnMineExpertToStart(),720);
+            }
+        };
+
+        window.returnMineExpertToStart = function() {
+            const g=ensureMineExpertState(),p=g.play;mineExpertEnsureRoundState(p);
+            if(!p||p.status!=='playing'||p.phase!==MINE_EXPERT_PHASE.EXPLODING)return;
+            p.phase=MINE_EXPERT_PHASE.RETURNING;p.feedback='returning';p.explosionIndex=null;p.character={...p.questionStart};saveData();
+            const map=document.getElementById('mine-expert-map');map?.classList.remove('exploding');map?.querySelectorAll('.mine-explosion').forEach(x=>x.remove());
+            mineExpertSetStatus('↩️ Đang quay về điểm xuất phát...');mineExpertSetFeedback('');mineExpertSetCharacter(p.questionStart,true,true);
+            mineExpertLater(()=>{
+                const current=ensureMineExpertState().play;if(!current||current.status!=='playing'||current.phase!==MINE_EXPERT_PHASE.RETURNING)return;
+                current.phase=MINE_EXPERT_PHASE.IDLE;current.selectedIndex=null;current.feedback=null;current.character={...current.questionStart};saveData();
+                const ch=document.getElementById('mine-expert-character');ch?.classList.remove('moving','returning');
+                document.querySelectorAll('#mine-expert-map .mine-answer-node').forEach(el=>el.classList.remove('selected','wrong'));
+                mineExpertSetAnswerLock(false);mineExpertSetStatus('👉 Chọn lại một bong bóng đáp án.');
+            },850);
+        };
+
+        window.startMineExpertMapScroll = function() {
+            const g=ensureMineExpertState(),p=g.play;mineExpertEnsureRoundState(p);
+            if(!p||p.status!=='playing'||p.phase!==MINE_EXPERT_PHASE.NEXT_QUESTION)return;
+            p.phase=MINE_EXPERT_PHASE.SCROLLING;saveData();mineExpertSetAnswerLock(true);mineExpertSetStatus('🗺️ Đang tiến sâu vào khu vực mới...');
+            const map=document.getElementById('mine-expert-map'),stage=map?.querySelector('.mine-map-stage');
+            map?.classList.add('mine-camera-scrolling');stage?.classList.add('mine-scroll-out');map?.insertAdjacentHTML('beforeend','<div class="mine-map-scroll-flash"></div>');
+            mineExpertLater(()=>{
+                const current=ensureMineExpertState().play;if(!current||current.status!=='playing'||current.phase!==MINE_EXPERT_PHASE.SCROLLING)return;
+                current.phase=MINE_EXPERT_PHASE.NEXT_QUESTION;current.questionIndex++;mineExpertPrepareRound(current,true);current.phase=MINE_EXPERT_PHASE.NEXT_QUESTION;saveData();
+                window.refreshMineExpertRoundUI(true);
+                mineExpertLater(()=>{
+                    const latest=ensureMineExpertState().play;if(!latest||latest.status!=='playing')return;
+                    latest.phase=MINE_EXPERT_PHASE.IDLE;saveData();
+                    document.querySelector('#mine-expert-map .mine-map-stage')?.classList.remove('mine-scroll-in');
+                    document.getElementById('mine-expert-map')?.classList.remove('mine-camera-scrolling');
+                    mineExpertSetAnswerLock(false);mineExpertSetStatus('👉 Khu vực mới: chọn một bong bóng đáp án.');
+                },620);
+            },620);
         };
 
         window.nextMineExpertQuestion = function() {
-            const g=ensureMineExpertState(),p=g.play;if(!p||p.status!=='playing'||p.phase!=='result')return;
-            if(p.questionIndex>=p.questions.length-1) return window.finishMineExpertGame();
-            p.questionIndex++; p.phase='answering'; p.selectedIndex=null;p.feedback=null;p.explosionIndex=null;p.character={...MINE_EXPERT_START_POS};
-            saveData();window.initMineExpertGame();
+            const p=ensureMineExpertState().play;if(!p||p.status!=='playing')return;
+            if(p.phase===MINE_EXPERT_PHASE.NEXT_QUESTION) window.startMineExpertMapScroll();
         };
 
         window.finishMineExpertGame = function() {
             const g=ensureMineExpertState(),p=g.play;if(!p||p.status==='finished')return;
-            p.status='finished';p.phase='finished';p.finishedAt=Date.now();mineExpertClearTimers();window.stopGameBackgroundMusic?.(true);mineExpertSound('win');saveData();window.initMineExpertGame();
+            p.status='finished';p.phase=MINE_EXPERT_PHASE.FINISHED;p.finishedAt=Date.now();mineExpertClearTimers();window.stopGameBackgroundMusic?.(true);mineExpertSound('win');saveData();window.initMineExpertGame();
         };
 
         window.replayMineExpertGame = function(){const g=ensureMineExpertState();g.view='config';g.play=null;saveData();window.initMineExpertGame();setTimeout(()=>window.startMineExpertGame(),80);};
         window.backMineExpertToConfig = function(){const g=ensureMineExpertState();window.cleanupMineExpertGame(false);g.view='config';g.play=null;saveData();window.exitInteractiveGameFullscreen?.();window.initMineExpertGame();};
         window.leaveMineExpertToMenu = function(){window.cleanupMineExpertGame(true);const g=ensureMineExpertState();g.view='config';g.play=null;saveData();state.activeGame=null;renderLayout();};
-        window.toggleMineExpertSound = function(){const g=ensureMineExpertState();g.settings.soundEnabled=!g.settings.soundEnabled;saveData();if(g.settings.soundEnabled&&g.play?.status==='playing')window.startGameBackgroundMusic?.('mine-expert');else window.stopGameBackgroundMusic?.(false);window.initMineExpertGame();};
+        window.toggleMineExpertSound = function(){
+            const g=ensureMineExpertState();g.settings.soundEnabled=!g.settings.soundEnabled;saveData();
+            if(g.settings.soundEnabled&&g.play?.status==='playing')window.startGameBackgroundMusic?.('mine-expert');else window.stopGameBackgroundMusic?.(false);
+            const icon=document.querySelector('[data-mine-sound-icon]');if(icon)icon.className=`ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}`;
+            if(!g.play||g.view==='config')window.initMineExpertGame();
+        };
 
         function mineExpertSoldierSvg() {
             return `<svg class="mine-expert-soldier w-full h-full" viewBox="0 0 120 150" aria-hidden="true">
@@ -3510,21 +3666,17 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             </svg>`;
         }
 
-        function mineExpertMapDecor() {
-            return `
-                <div class="mine-map-grid"></div>
-                <div class="mine-map-prop mine-sign" style="left:8%;top:18%"></div>
-                <div class="mine-map-prop bush" style="left:14%;top:18%"></div>
-                <div class="mine-map-prop rock" style="left:55%;top:18%"></div>
-                <div class="mine-map-prop flower" style="left:88%;top:22%"></div>
-                <div class="mine-map-prop bush" style="left:12%;top:56%"></div>
-                <div class="mine-map-prop crater" style="left:44%;top:33%"></div>
-                <div class="mine-map-prop rock" style="left:68%;top:45%"></div>
-                <div class="mine-map-prop flower" style="left:33%;top:56%"></div>
-                <div class="mine-map-prop crater" style="left:86%;top:55%"></div>
-                <div class="mine-map-prop bush" style="left:80%;top:83%"></div>
-                <div class="mine-map-prop rock" style="left:22%;top:85%"></div>
-            `;
+        function mineExpertMapDecor(seed=1) {
+            let s=(Number(seed)||1)*9301+49297;
+            const rnd=()=>{s=(s*233280+49297)%233280;return s/233280;};
+            const props=[];
+            const types=['bush','rock','crater','flower','bush','rock','flower','crater','bush'];
+            types.forEach((type,i)=>{
+                const left=7+rnd()*86,top=15+rnd()*72,scale=.75+rnd()*.55;
+                props.push(`<div class="mine-map-prop ${type}" style="left:${left.toFixed(1)}%;top:${top.toFixed(1)}%;transform:scale(${scale.toFixed(2)})"></div>`);
+            });
+            props.push(`<div class="mine-map-prop mine-sign" style="left:${(6+rnd()*10).toFixed(1)}%;top:${(16+rnd()*10).toFixed(1)}%"></div>`);
+            return `<div class="mine-map-grid"></div>${props.join('')}`;
         }
 
         function renderMineExpertConfig(g) {
@@ -3547,26 +3699,39 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 </div></div>`;
         }
 
+        function mineExpertProgress(p){return Math.round(((Number(p.correct)||0)/Math.max(1,p.questions?.length||1))*100);}
+        function renderMineExpertMapStage(g,p,entering=false){
+            mineExpertEnsureRoundState(p);const q=p.questions?.[p.questionIndex];if(!q)return '';
+            const positions=p.answerPositions,markers=MINE_EXPERT_MARKERS.map((m,i)=>`<div class="mine-marker" style="left:${m[0]}%;top:${m[1]}%">✦</div>`).join('');
+            const answerNodes=q.options.map((o,i)=>{const pos=positions[i]||{x:20+i*18,y:35};const locked=p.phase!==MINE_EXPERT_PHASE.IDLE;return `<button data-answer-index="${i}" class="mine-answer-node" style="left:${pos.x}%;top:${pos.y}%;--bubble-delay:${(-i*.42).toFixed(2)}s" onclick="submitMineExpertAnswer(${i})" ${locked?'disabled':''}><span class="mine-water-bubble"><span class="mine-letter">${String.fromCharCode(65+i)}</span></span><span class="mine-answer-text">${mfgEsc(o.text)}</span></button>`}).join('');
+            return `<div class="mine-map-stage ${entering?'mine-scroll-in':''}">${mineExpertMapDecor(p.zoneSeed)}<div class="mine-expert-path"></div>${markers}<div class="absolute left-1/2 bottom-3 -translate-x-1/2 px-3 py-1 rounded-full bg-black/28 text-[10px] font-black text-lime-50 border border-white/14 mine-start-badge">⛺ ĐIỂM XUẤT PHÁT</div>${answerNodes}<div id="mine-expert-character" class="mine-expert-character" style="left:${p.character.x}%;top:${p.character.y}%">${mineExpertSoldierSvg()}</div></div>`;
+        }
+
+        window.refreshMineExpertRoundUI = function(entering=false){
+            const g=ensureMineExpertState(),p=g.play;if(!p||p.status!=='playing')return;mineExpertEnsureRoundState(p);
+            const q=p.questions?.[p.questionIndex],progress=mineExpertProgress(p);if(!q)return;
+            const mission=document.getElementById('mine-mission-count');if(mission)mission.textContent=`Nhiệm vụ ${p.questionIndex+1}/${p.questions.length}`;
+            const bar=document.getElementById('mine-progress-bar');if(bar)bar.style.width=`${progress}%`;
+            const c=document.getElementById('mine-stat-correct');if(c)c.textContent=p.correct;
+            const s=document.getElementById('mine-stat-score');if(s)s.textContent=p.score;
+            const pr=document.getElementById('mine-stat-progress');if(pr)pr.textContent=`${progress}%`;
+            const qn=document.getElementById('mine-question-number');if(qn)qn.textContent=`Câu ${p.questionIndex+1}`;
+            const qt=document.getElementById('mine-question-text');if(qt)qt.textContent=q.text;
+            mineExpertSetFeedback('');mineExpertSetStatus(mineExpertStatusHtml(p));
+            const map=document.getElementById('mine-expert-map');if(map){map.classList.remove('exploding');map.innerHTML=renderMineExpertMapStage(g,p,entering);}
+            setTimeout(()=>window.updateInteractiveGameFullscreenButtons?.(),0);
+        };
+
         function renderMineExpertPlay(g,p) {
-            const q=p.questions?.[p.questionIndex];
-            if(!q)return '';
-            const isResult=p.phase==='result', isMoving=p.phase==='moving';
-            const correctIdx=q.options.findIndex(o=>o.isCorrect);
-            const progress=Math.round(((p.questionIndex+(isResult?1:0))/p.questions.length)*100);
-            const markers=MINE_EXPERT_MARKERS.map((m,i)=>`<div class="mine-marker" style="left:${m[0]}%;top:${m[1]}%">✦</div>`).join('');
-            const mapDecor = mineExpertMapDecor();
-            const answerNodes=q.options.map((o,i)=>{const pos=MINE_EXPERT_POSITIONS[i];let cls='';if(p.selectedIndex===i)cls+=' selected';if(isResult&&i===correctIdx)cls+=' correct';if(isResult&&p.feedback==='wrong'&&i===p.selectedIndex)cls+=' wrong';return `<button class="mine-answer-node${cls}" style="left:${pos.x}%;top:${pos.y}%" onclick="submitMineExpertAnswer(${i})" ${p.phase!=='answering'?'disabled':''}><span class="mine-letter">${String.fromCharCode(65+i)}</span><span class="mine-answer-text">${mfgEsc(o.text)}</span>${isResult&&i===correctIdx?'<i class="ph-fill ph-check-circle text-xl text-emerald-600 ml-auto"></i>':''}</button>`}).join('');
-            const safe=isResult&&p.feedback==='correct'?`<div class="mine-safe-ring" style="left:${p.character.x}%;top:${p.character.y}%"></div>`:'';
-            const boom=isResult&&p.feedback==='wrong'&&Number.isInteger(p.explosionIndex)?(()=>{const pos=MINE_EXPERT_POSITIONS[p.explosionIndex];return `<div class="mine-explosion" style="left:${pos.x}%;top:${pos.y}%"><div class="blast"></div><div class="smoke"></div></div>`})():'';
-            const feedback=isResult?(p.feedback==='correct'?`<div class="mine-result-pop rounded-2xl bg-emerald-500/14 border border-emerald-300/35 p-4 text-emerald-100 shadow-lg"><div class="font-black text-xl">✅ Khu vực an toàn!</div><div class="text-sm mt-1">Chính xác. Chuyên gia đã vượt qua điểm mìn này.</div></div>`:`<div class="mine-result-pop rounded-2xl bg-rose-500/15 border border-rose-300/35 p-4 text-rose-100 shadow-lg"><div class="font-black text-xl">💥 Mìn phát nổ!</div><div class="text-sm mt-1">Chưa đúng. Đáp án an toàn là <b>${String.fromCharCode(65+correctIdx)}</b>.</div></div>`):'';
-            const finishNext=p.questionIndex>=p.questions.length-1;
+            mineExpertEnsureRoundState(p);const q=p.questions?.[p.questionIndex];if(!q)return '';
+            const progress=mineExpertProgress(p);
             return `<div class="mine-expert-shell w-full min-h-full h-full overflow-auto custom-scrollbar rounded-[1.5rem] p-3 md:p-4">
                 <div class="max-w-[1520px] mx-auto min-h-full flex flex-col gap-3">
-                    <div class="flex items-center justify-between gap-2 rounded-2xl border border-white/12 bg-black/18 backdrop-blur-md p-2.5 md:p-3 flex-shrink-0"><div class="flex items-center gap-2"><button onclick="backMineExpertToConfig()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 font-black text-xs"><i class="ph-bold ph-arrow-left mr-1"></i> <span class="hidden sm:inline">Về cấu hình</span></button><div><div class="text-[10px] uppercase tracking-[.2em] text-lime-200 font-black">Nhiệm vụ ${p.questionIndex+1}/${p.questions.length}</div><div class="font-black text-base md:text-xl">🧨 CHUYÊN GIA GỠ MÌN</div></div></div><div class="flex items-center gap-2"><button onclick="toggleMineExpertSound()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Âm thanh"><i class="ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}"></i></button><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-in"></i></button><button onclick="leaveMineExpertToMenu()" class="px-3 py-2 rounded-xl bg-red-500/20 border border-red-300/25 text-red-50 font-black text-xs">THOÁT</button></div></div>
-                    <div class="h-2.5 bg-white/10 rounded-full overflow-hidden flex-shrink-0"><div class="h-full bg-gradient-to-r from-lime-300 via-emerald-300 to-cyan-300 rounded-full transition-all duration-500" style="width:${progress}%"></div></div>
+                    <div class="flex items-center justify-between gap-2 rounded-2xl border border-white/12 bg-black/18 backdrop-blur-md p-2.5 md:p-3 flex-shrink-0"><div class="flex items-center gap-2"><button onclick="backMineExpertToConfig()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 font-black text-xs"><i class="ph-bold ph-arrow-left mr-1"></i> <span class="hidden sm:inline">Về cấu hình</span></button><div><div id="mine-mission-count" class="text-[10px] uppercase tracking-[.2em] text-lime-200 font-black">Nhiệm vụ ${p.questionIndex+1}/${p.questions.length}</div><div class="font-black text-base md:text-xl">🧨 CHUYÊN GIA GỠ MÌN</div></div></div><div class="flex items-center gap-2"><button onclick="toggleMineExpertSound()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Âm thanh"><i data-mine-sound-icon class="ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}"></i></button><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-in"></i></button><button onclick="leaveMineExpertToMenu()" class="px-3 py-2 rounded-xl bg-red-500/20 border border-red-300/25 text-red-50 font-black text-xs">THOÁT</button></div></div>
+                    <div class="h-2.5 bg-white/10 rounded-full overflow-hidden flex-shrink-0"><div id="mine-progress-bar" class="h-full bg-gradient-to-r from-lime-300 via-emerald-300 to-cyan-300 rounded-full transition-all duration-500" style="width:${progress}%"></div></div>
                     <div class="grid grid-cols-1 lg:grid-cols-[minmax(320px,34%)_1fr] gap-3 flex-1 min-h-0">
-                        <aside class="rounded-3xl border border-white/12 bg-black/22 backdrop-blur-xl p-4 md:p-5 flex flex-col min-h-[320px] shadow-[0_20px_50px_rgba(0,0,0,.18)]"><div class="flex items-center gap-3 mb-4">${getAvatarImg(p.contestant.avatarUrl,p.contestant.name,'w-12 h-12 border-2 border-lime-300/60 shadow-lg')}<div class="min-w-0"><div class="font-black text-lg truncate">${mfgEsc(p.contestant.name)}</div><div class="text-xs text-lime-200 truncate">${mfgEsc(p.contestant.subtitle)}</div></div></div><div class="grid grid-cols-3 gap-2 mb-4"><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐÚNG</div><div class="text-2xl font-black text-lime-300">${p.correct}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐIỂM</div><div class="text-2xl font-black text-yellow-300">${p.score}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">TIẾN ĐỘ</div><div class="text-2xl font-black text-cyan-300">${progress}%</div></div></div><div class="text-[11px] uppercase tracking-[.17em] text-lime-300 font-black mb-2">Câu ${p.questionIndex+1}</div><div class="rounded-[1.75rem] bg-white/10 border border-white/12 p-4 md:p-5 text-[clamp(22px,2.2vw,34px)] leading-[1.18] font-black flex-1 flex items-center shadow-inner">${mfgEsc(q.text)}</div><div id="mine-expert-status" class="mt-3 text-sm font-bold text-slate-100 min-h-[24px]">${isMoving?'🏃 Đang chạy tới đáp án...':isResult?(p.feedback==='correct'?'✅ Đã tới khu vực an toàn':'💥 Đã kích hoạt mìn'):'👉 Chọn một đáp án trên bản đồ'}</div>${feedback}${isResult?`<button onclick="${finishNext?'finishMineExpertGame()':'nextMineExpertQuestion()'}" class="mt-3 w-full py-3.5 rounded-xl bg-yellow-300 hover:bg-yellow-200 text-lime-950 font-black shadow-lg">${finishNext?'XEM KẾT QUẢ':'CÂU TIẾP THEO'} <i class="ph-bold ph-arrow-right ml-1"></i></button>`:''}</aside>
-                        <section class="mine-expert-map ${isResult&&p.feedback==='wrong'?'exploding':''} rounded-3xl border-2 border-lime-200/25 min-h-[500px] lg:min-h-[620px] relative">${mapDecor}<div class="mine-expert-path"></div>${markers}<div class="absolute left-1/2 bottom-3 -translate-x-1/2 px-3 py-1 rounded-full bg-black/28 text-[10px] font-black text-lime-50 border border-white/14 mine-start-badge">⛺ ĐIỂM XUẤT PHÁT</div>${answerNodes}${safe}${boom}<div id="mine-expert-character" class="mine-expert-character ${isMoving?'moving':''}" style="left:${p.character.x}%;top:${p.character.y}%">${mineExpertSoldierSvg()}</div></section>
+                        <aside class="rounded-3xl border border-white/12 bg-black/22 backdrop-blur-xl p-4 md:p-5 flex flex-col min-h-[320px] shadow-[0_20px_50px_rgba(0,0,0,.18)]"><div class="flex items-center gap-3 mb-4">${getAvatarImg(p.contestant.avatarUrl,p.contestant.name,'w-12 h-12 border-2 border-lime-300/60 shadow-lg')}<div class="min-w-0"><div class="font-black text-lg truncate">${mfgEsc(p.contestant.name)}</div><div class="text-xs text-lime-200 truncate">${mfgEsc(p.contestant.subtitle)}</div></div></div><div class="grid grid-cols-3 gap-2 mb-4"><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐÚNG</div><div id="mine-stat-correct" class="text-2xl font-black text-lime-300">${p.correct}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐIỂM</div><div id="mine-stat-score" class="text-2xl font-black text-yellow-300">${p.score}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">TIẾN ĐỘ</div><div id="mine-stat-progress" class="text-2xl font-black text-cyan-300">${progress}%</div></div></div><div id="mine-question-number" class="text-[11px] uppercase tracking-[.17em] text-lime-300 font-black mb-2">Câu ${p.questionIndex+1}</div><div id="mine-question-text" class="rounded-[1.75rem] bg-white/10 border border-white/12 p-4 md:p-5 text-[clamp(22px,2.2vw,34px)] leading-[1.18] font-black flex-1 flex items-center shadow-inner">${mfgEsc(q.text)}</div><div id="mine-expert-status" class="mt-3 text-sm font-bold text-slate-100 min-h-[24px]">${mineExpertStatusHtml(p)}</div><div id="mine-expert-feedback" class="mt-2"></div></aside>
+                        <section id="mine-expert-map" class="mine-expert-map rounded-3xl border-2 border-lime-200/25 min-h-[500px] lg:min-h-[620px] relative">${renderMineExpertMapStage(g,p,false)}</section>
                     </div>
                 </div></div>`;
         }
@@ -3581,6 +3746,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const g=ensureMineExpertState();
             if(g.view==='config'||!g.play){mount.innerHTML=renderMineExpertConfig(g);return;}
             if(g.play.status==='finished'){mount.innerHTML=renderMineExpertFinished(g,g.play);return;}
+            mineExpertEnsureRoundState(g.play);
             mount.innerHTML=renderMineExpertPlay(g,g.play);
             setTimeout(()=>window.updateInteractiveGameFullscreenButtons?.(),0);
         };
