@@ -1259,38 +1259,62 @@
 
 <style id="mine-expert-game-styles">
 /* =============================================================
-   🧨 CHUYÊN GIA GỠ MÌN - UI/ANIMATION NHẸ
-   Chỉ áp dụng trong game, không ảnh hưởng layout chung của app.
+   🧨 CHUYÊN GIA GỠ MÌN - NÂNG CẤP GIAO DIỆN 3D
+   Chỉ nâng cấp hình ảnh / bố cục hiển thị trong game.
    ============================================================= */
-.mine-expert-shell{font-family:Inter,system-ui,sans-serif;background:radial-gradient(circle at 20% 10%,rgba(74,222,128,.10),transparent 26%),radial-gradient(circle at 85% 25%,rgba(250,204,21,.08),transparent 24%),linear-gradient(145deg,#071a12 0%,#0d2b1c 48%,#092016 100%);color:#fff;min-height:100%;}
+.mine-expert-shell{font-family:Inter,system-ui,sans-serif;background:
+ radial-gradient(circle at 14% 12%,rgba(190,242,100,.16),transparent 24%),
+ radial-gradient(circle at 85% 15%,rgba(125,211,252,.18),transparent 26%),
+ linear-gradient(180deg,#183222 0%,#10271a 54%,#0a180f 100%);color:#fff;min-height:100%;}
 .mine-expert-map{position:relative;overflow:hidden;isolation:isolate;background:
- radial-gradient(circle at 10% 20%,rgba(255,255,255,.10) 0 2px,transparent 3px),
- radial-gradient(circle at 70% 62%,rgba(255,255,255,.08) 0 2px,transparent 3px),
- linear-gradient(135deg,rgba(18,83,43,.94),rgba(42,111,54,.96));background-size:42px 42px,56px 56px,100% 100%;}
-.mine-expert-map:before{content:"";position:absolute;inset:0;z-index:-2;background:repeating-linear-gradient(18deg,transparent 0 24px,rgba(255,255,255,.025) 25px 27px,transparent 28px 48px);opacity:.8}
-.mine-expert-map:after{content:"";position:absolute;inset:auto 0 0;height:22%;z-index:-1;background:linear-gradient(transparent,rgba(4,30,14,.38));pointer-events:none}
-.mine-answer-node{position:absolute;transform:translate(-50%,-50%);width:min(31%,240px);min-width:150px;min-height:88px;border:2px solid rgba(255,255,255,.34);background:linear-gradient(145deg,rgba(7,31,22,.82),rgba(18,62,38,.86));box-shadow:0 15px 34px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.10);backdrop-filter:blur(8px);border-radius:22px;padding:12px 14px;color:#fff;text-align:left;transition:.2s ease;z-index:12;cursor:pointer;display:flex;gap:10px;align-items:center}
-.mine-answer-node:hover:not(:disabled){transform:translate(-50%,-50%) scale(1.035);border-color:#fde047;box-shadow:0 0 0 4px rgba(253,224,71,.14),0 18px 38px rgba(0,0,0,.34)}
+ radial-gradient(ellipse at 50% -8%,rgba(255,255,255,.92) 0%,rgba(255,255,255,.14) 22%,transparent 48%),
+ linear-gradient(180deg,#c9f3ff 0 18%,#8ee1f4 18% 22%,#8dd56d 22% 36%,#67b050 36% 70%,#4c8d3d 70% 100%);
+ box-shadow:inset 0 1px rgba(255,255,255,.55),inset 0 -18px 40px rgba(9,54,17,.32),0 25px 65px rgba(0,0,0,.25)}
+.mine-expert-map:before{content:"";position:absolute;inset:16% 4% 6% 4%;z-index:-2;border-radius:32px;background:
+ repeating-linear-gradient(135deg,rgba(255,255,255,.055) 0 22px,rgba(255,255,255,.01) 22px 44px),
+ linear-gradient(180deg,rgba(255,255,255,.10),rgba(0,0,0,.08));transform:perspective(900px) rotateX(38deg);transform-origin:center top;opacity:.85;pointer-events:none;}
+.mine-expert-map:after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:
+ radial-gradient(circle at 18% 24%,rgba(255,255,255,.16),transparent 18%),
+ radial-gradient(circle at 78% 22%,rgba(255,255,255,.14),transparent 16%),
+ linear-gradient(to bottom,transparent 0 72%,rgba(12,48,21,.34) 100%)}
+.mine-expert-map .mine-map-grid{position:absolute;inset:22% 4% 8%;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:62px 62px;border-radius:30px;transform:perspective(900px) rotateX(38deg);transform-origin:center top;opacity:.35;filter:drop-shadow(0 16px 12px rgba(0,0,0,.12))}
+.mine-map-prop{position:absolute;pointer-events:none;z-index:3;filter:drop-shadow(0 10px 10px rgba(0,0,0,.20))}
+.mine-map-prop.bush{width:54px;height:34px;border-radius:50% 50% 45% 45%;background:radial-gradient(circle at 35% 30%,#d9f99d 0 16%,#84cc16 22%,#4d7c0f 72%,#365314 100%)}
+.mine-map-prop.bush:before,.mine-map-prop.bush:after{content:"";position:absolute;bottom:8px;width:26px;height:22px;border-radius:50%;background:inherit}
+.mine-map-prop.bush:before{left:-7px}.mine-map-prop.bush:after{right:-7px}
+.mine-map-prop.rock{width:40px;height:28px;border-radius:54% 46% 42% 58%/60% 50% 50% 40%;background:linear-gradient(145deg,#d1d5db,#94a3b8 48%,#64748b 100%);box-shadow:inset 0 6px 10px rgba(255,255,255,.34),inset -8px -10px 14px rgba(0,0,0,.18)}
+.mine-map-prop.crater{width:52px;height:24px;border-radius:50%;background:radial-gradient(ellipse at 50% 40%,rgba(17,24,39,.12) 0 22%,rgba(0,0,0,.42) 40%,rgba(0,0,0,.18) 68%,transparent 74%);opacity:.75}
+.mine-map-prop.flower{width:22px;height:22px}
+.mine-map-prop.flower:before,.mine-map-prop.flower:after{content:"";position:absolute;border-radius:50%}
+.mine-map-prop.flower:before{inset:2px;background:radial-gradient(circle,#fef08a 0 22%,#f472b6 26% 48%,#fb7185 52% 74%,transparent 76%)}
+.mine-map-prop.flower:after{left:8px;bottom:-8px;width:6px;height:14px;background:#15803d;border-radius:999px}
+.mine-map-prop.mine-sign{width:68px;height:60px}
+.mine-map-prop.mine-sign:before{content:"";position:absolute;left:30px;bottom:0;width:8px;height:28px;background:linear-gradient(180deg,#b45309,#78350f);border-radius:8px;box-shadow:0 4px 4px rgba(0,0,0,.25)}
+.mine-map-prop.mine-sign:after{content:"!";position:absolute;left:12px;top:6px;width:44px;height:34px;border-radius:14px;background:linear-gradient(145deg,#fef08a,#f59e0b);color:#7c2d12;font-weight:1000;font-size:24px;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.65);box-shadow:inset 0 1px rgba(255,255,255,.8),0 8px 18px rgba(0,0,0,.18)}
+.mine-answer-node{position:absolute;transform:translate(-50%,-50%);width:min(24%,178px);min-width:118px;min-height:62px;border:1.8px solid rgba(255,255,255,.46);background:linear-gradient(160deg,rgba(255,255,255,.86),rgba(240,253,244,.78) 32%,rgba(206,250,221,.74) 100%);box-shadow:0 16px 24px rgba(0,0,0,.20),inset 0 1px rgba(255,255,255,.88),0 0 0 4px rgba(255,255,255,.05);backdrop-filter:blur(8px);border-radius:20px;padding:8px 10px;color:#16301c;text-align:left;transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease,background .22s ease;z-index:12;cursor:pointer;display:flex;gap:8px;align-items:center}
+.mine-answer-node:hover:not(:disabled){transform:translate(-50%,-50%) scale(1.035);border-color:#fde047;box-shadow:0 0 0 5px rgba(253,224,71,.18),0 18px 28px rgba(0,0,0,.24)}
 .mine-answer-node:disabled{cursor:default}
-.mine-answer-node .mine-letter{width:46px;height:46px;min-width:46px;border-radius:15px;background:linear-gradient(145deg,#facc15,#f59e0b);color:#422006;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:1000;box-shadow:inset 0 1px #fff8,0 5px 12px #0004}
-.mine-answer-node .mine-answer-text{font-size:clamp(14px,1.25vw,20px);font-weight:900;line-height:1.22;overflow-wrap:anywhere}
-.mine-answer-node.selected{border-color:#facc15;box-shadow:0 0 0 5px rgba(250,204,21,.18),0 18px 38px rgba(0,0,0,.32)}
-.mine-answer-node.correct{border-color:#4ade80;background:linear-gradient(145deg,rgba(6,78,59,.95),rgba(22,101,52,.94));box-shadow:0 0 0 6px rgba(74,222,128,.16),0 0 36px rgba(74,222,128,.22)}
-.mine-answer-node.wrong{border-color:#fb7185;background:linear-gradient(145deg,rgba(127,29,29,.94),rgba(76,5,25,.94));animation:mineWrongShake .5s ease both}
-.mine-expert-character{position:absolute;width:78px;height:98px;transform:translate(-50%,-72%);z-index:30;transition:left .82s cubic-bezier(.22,.72,.23,1),top .82s cubic-bezier(.22,.72,.23,1);filter:drop-shadow(0 10px 9px rgba(0,0,0,.33));pointer-events:none}
+.mine-answer-node .mine-letter{width:34px;height:34px;min-width:34px;border-radius:12px;background:linear-gradient(145deg,#fef08a,#f59e0b);color:#713f12;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:1000;box-shadow:inset 0 1px rgba(255,255,255,.82),0 4px 10px rgba(0,0,0,.16)}
+.mine-answer-node .mine-answer-text{font-size:clamp(12px,1.05vw,16px);font-weight:900;line-height:1.16;overflow-wrap:anywhere;text-shadow:0 1px rgba(255,255,255,.35)}
+.mine-answer-node.selected{border-color:#facc15;background:linear-gradient(160deg,rgba(254,240,138,.94),rgba(253,224,71,.88));box-shadow:0 0 0 6px rgba(250,204,21,.16),0 16px 28px rgba(0,0,0,.26)}
+.mine-answer-node.correct{border-color:#22c55e;background:linear-gradient(160deg,rgba(220,252,231,.96),rgba(134,239,172,.88));box-shadow:0 0 0 6px rgba(34,197,94,.18),0 0 34px rgba(74,222,128,.18)}
+.mine-answer-node.wrong{border-color:#fb7185;background:linear-gradient(160deg,rgba(255,228,230,.98),rgba(254,205,211,.92));animation:mineWrongShake .5s ease both}
+.mine-expert-character{position:absolute;width:96px;height:122px;transform:translate(-50%,-74%);z-index:30;transition:left .82s cubic-bezier(.22,.72,.23,1),top .82s cubic-bezier(.22,.72,.23,1);filter:drop-shadow(0 16px 14px rgba(0,0,0,.28));pointer-events:none}
+.mine-expert-character:after{content:"";position:absolute;left:50%;bottom:0;width:58px;height:14px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse at center,rgba(0,0,0,.34),transparent 70%);z-index:-1}
 .mine-expert-character.moving .mine-expert-soldier{animation:mineRunBob .18s linear infinite alternate}
-.mine-expert-character.moving .mine-arm-left{transform-origin:38px 48px;animation:mineArm .26s ease-in-out infinite alternate}
-.mine-expert-character.moving .mine-arm-right{transform-origin:62px 48px;animation:mineArm .26s ease-in-out infinite alternate-reverse}
-.mine-expert-character.moving .mine-leg-left{transform-origin:44px 68px;animation:mineLeg .24s ease-in-out infinite alternate}
-.mine-expert-character.moving .mine-leg-right{transform-origin:56px 68px;animation:mineLeg .24s ease-in-out infinite alternate-reverse}
-.mine-safe-ring{position:absolute;width:120px;height:120px;border:4px solid #4ade80;border-radius:50%;transform:translate(-50%,-50%);z-index:24;pointer-events:none;animation:mineSafePulse 1.05s ease-out both;box-shadow:0 0 30px rgba(74,222,128,.6)}
+.mine-expert-character.moving .mine-arm-left{transform-origin:44px 66px;animation:mineArm .26s ease-in-out infinite alternate}
+.mine-expert-character.moving .mine-arm-right{transform-origin:76px 66px;animation:mineArm .26s ease-in-out infinite alternate-reverse}
+.mine-expert-character.moving .mine-leg-left{transform-origin:52px 97px;animation:mineLeg .24s ease-in-out infinite alternate}
+.mine-expert-character.moving .mine-leg-right{transform-origin:70px 97px;animation:mineLeg .24s ease-in-out infinite alternate-reverse}
+.mine-safe-ring{position:absolute;width:118px;height:118px;border:4px solid #4ade80;border-radius:50%;transform:translate(-50%,-50%);z-index:24;pointer-events:none;animation:mineSafePulse 1.05s ease-out both;box-shadow:0 0 30px rgba(74,222,128,.55)}
 .mine-safe-ring:after{content:"✓ AN TOÀN";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:13px;font-weight:1000;color:#dcfce7;white-space:nowrap;text-shadow:0 2px 5px #052e16}
 .mine-explosion{position:absolute;width:160px;height:160px;transform:translate(-50%,-50%);z-index:45;pointer-events:none;animation:mineExplosionFade .9s ease-out both}
 .mine-explosion .blast{position:absolute;inset:25%;border-radius:50%;background:radial-gradient(circle,#fff 0 8%,#fde047 12% 28%,#fb923c 30% 52%,#ef4444 54% 68%,transparent 70%);filter:drop-shadow(0 0 18px #fb923c);animation:mineBlast .62s cubic-bezier(.2,.7,.2,1) both}
 .mine-explosion .smoke{position:absolute;left:50%;top:48%;width:72px;height:72px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#94a3b8,#334155 68%,transparent 72%);opacity:.78;animation:mineSmoke .95s ease-out both}
 .mine-expert-map.exploding{animation:mineMapShake .5s ease-in-out both}
-.mine-marker{position:absolute;width:24px;height:24px;border-radius:50%;border:3px dashed rgba(244,63,94,.25);opacity:.48;display:flex;align-items:center;justify-content:center;color:rgba(254,202,202,.5);font-size:10px;z-index:2;pointer-events:none}
-.mine-expert-path{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.18;background-image:radial-gradient(circle,#fef08a 0 2px,transparent 3px);background-size:34px 34px;mask-image:linear-gradient(to top,#000,transparent 90%)}
+.mine-marker{position:absolute;width:26px;height:26px;border-radius:999px;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),rgba(255,255,255,.08) 62%,transparent 68%);box-shadow:inset 0 1px rgba(255,255,255,.32),0 8px 16px rgba(0,0,0,.16);display:flex;align-items:center;justify-content:center;color:rgba(127,29,29,.45);font-size:10px;z-index:2;pointer-events:none}
+.mine-expert-path{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.28;background-image:radial-gradient(circle,rgba(254,240,138,.92) 0 2px,transparent 3px);background-size:34px 34px;mask-image:linear-gradient(to top,#000,transparent 92%)}
+.mine-start-badge{box-shadow:0 10px 18px rgba(0,0,0,.16),inset 0 1px rgba(255,255,255,.18)}
 .mine-result-pop{animation:mineResultPop .45s cubic-bezier(.2,.8,.2,1.25) both}
 @keyframes mineRunBob{from{transform:translateY(0) rotate(-1deg)}to{transform:translateY(-5px) rotate(1deg)}}
 @keyframes mineArm{from{transform:rotate(-18deg)}to{transform:rotate(20deg)}}
@@ -1302,8 +1326,9 @@
 @keyframes mineExplosionFade{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
 @keyframes mineMapShake{0%,100%{transform:translate(0)}15%{transform:translate(-5px,2px)}30%{transform:translate(5px,-2px)}45%{transform:translate(-4px,-2px)}60%{transform:translate(4px,2px)}75%{transform:translate(-2px,1px)}}
 @keyframes mineResultPop{0%{opacity:0;transform:scale(.85) translateY(10px)}100%{opacity:1;transform:scale(1) translateY(0)}}
-@media(max-width:900px){.mine-answer-node{width:38%;min-width:130px;padding:9px 10px;min-height:74px}.mine-answer-node .mine-letter{width:38px;height:38px;min-width:38px;font-size:19px}.mine-expert-character{width:66px;height:85px}}
-@media(max-width:640px){.mine-answer-node{width:43%;min-width:0;border-radius:16px}.mine-answer-node .mine-answer-text{font-size:12px}.mine-answer-node .mine-letter{width:32px;height:32px;min-width:32px;font-size:16px}.mine-expert-character{width:58px;height:76px}.mine-safe-ring{width:92px;height:92px}}
+@media(max-width:1100px){.mine-answer-node{width:min(28%,172px);min-width:110px}.mine-expert-character{width:86px;height:110px}}
+@media(max-width:900px){.mine-answer-node{width:32%;min-width:102px;padding:8px 9px;min-height:58px}.mine-answer-node .mine-letter{width:32px;height:32px;min-width:32px;font-size:16px}.mine-expert-character{width:76px;height:98px}}
+@media(max-width:640px){.mine-answer-node{width:38%;min-width:0;border-radius:16px}.mine-answer-node .mine-answer-text{font-size:11px}.mine-answer-node .mine-letter{width:28px;height:28px;min-width:28px;font-size:14px}.mine-expert-character{width:66px;height:86px}.mine-safe-ring{width:92px;height:92px}.mine-expert-map .mine-map-grid{inset:24% 3% 8%;background-size:42px 42px}}
 @media(prefers-reduced-motion:reduce){.mine-expert-character,.mine-answer-node{transition-duration:.15s!important}.mine-expert-character *,.mine-explosion *,.mine-expert-map{animation-duration:.01ms!important;animation-iteration-count:1!important}}
 </style>
 
@@ -3458,20 +3483,48 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         window.toggleMineExpertSound = function(){const g=ensureMineExpertState();g.settings.soundEnabled=!g.settings.soundEnabled;saveData();if(g.settings.soundEnabled&&g.play?.status==='playing')window.startGameBackgroundMusic?.('mine-expert');else window.stopGameBackgroundMusic?.(false);window.initMineExpertGame();};
 
         function mineExpertSoldierSvg() {
-            return `<svg class="mine-expert-soldier w-full h-full" viewBox="0 0 100 120" aria-hidden="true">
-                <ellipse cx="50" cy="112" rx="28" ry="6" fill="#052e16" opacity=".32"/>
-                <g class="mine-leg-left"><path d="M43 76 L35 104" stroke="#334155" stroke-width="10" stroke-linecap="round"/><path d="M34 105 L22 109" stroke="#111827" stroke-width="7" stroke-linecap="round"/></g>
-                <g class="mine-leg-right"><path d="M57 76 L67 104" stroke="#334155" stroke-width="10" stroke-linecap="round"/><path d="M67 105 L80 108" stroke="#111827" stroke-width="7" stroke-linecap="round"/></g>
-                <path d="M31 48 Q50 38 69 48 L65 82 Q50 90 35 82 Z" fill="#4d7c0f" stroke="#a3e635" stroke-width="2"/>
-                <path d="M37 50 L63 50 L61 63 L39 63 Z" fill="#365314" opacity=".65"/>
-                <g class="mine-arm-left"><path d="M34 52 L20 70" stroke="#65a30d" stroke-width="9" stroke-linecap="round"/><circle cx="19" cy="71" r="5" fill="#fed7aa"/></g>
-                <g class="mine-arm-right"><path d="M66 52 L80 69" stroke="#65a30d" stroke-width="9" stroke-linecap="round"/><circle cx="81" cy="70" r="5" fill="#fed7aa"/></g>
-                <circle cx="50" cy="32" r="18" fill="#fed7aa" stroke="#7c2d12" stroke-width="1.5"/>
-                <path d="M29 32 Q31 10 50 9 Q70 9 72 32 Z" fill="#3f6212" stroke="#bef264" stroke-width="2"/>
-                <rect x="26" y="28" width="48" height="7" rx="3.5" fill="#365314"/><path d="M34 18 Q50 9 66 18" stroke="#84cc16" stroke-width="5" fill="none"/>
-                <circle cx="44" cy="33" r="2.2" fill="#1e293b"/><circle cx="57" cy="33" r="2.2" fill="#1e293b"/><path d="M44 42 Q50 46 57 41" stroke="#9a3412" stroke-width="2" fill="none" stroke-linecap="round"/>
-                <rect x="67" y="52" width="11" height="25" rx="4" fill="#334155"/><circle cx="72.5" cy="57" r="2" fill="#facc15"/>
+            return `<svg class="mine-expert-soldier w-full h-full" viewBox="0 0 120 150" aria-hidden="true">
+                <defs>
+                    <linearGradient id="mineHelmet" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c4f36b"/><stop offset="55%" stop-color="#65a30d"/><stop offset="100%" stop-color="#3f6212"/></linearGradient>
+                    <linearGradient id="mineSuit" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#bef264"/><stop offset="38%" stop-color="#65a30d"/><stop offset="100%" stop-color="#365314"/></linearGradient>
+                    <linearGradient id="minePants" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#64748b"/><stop offset="100%" stop-color="#1e293b"/></linearGradient>
+                    <radialGradient id="mineFace" cx="35%" cy="28%" r="75%"><stop offset="0%" stop-color="#ffe4c7"/><stop offset="100%" stop-color="#fdba74"/></radialGradient>
+                </defs>
+                <ellipse cx="60" cy="140" rx="30" ry="8" fill="#052e16" opacity=".24"/>
+                <g class="mine-leg-left"><path d="M56 92 C50 102 45 114 40 129" stroke="url(#minePants)" stroke-width="12" stroke-linecap="round"/><path d="M38 129 L24 133" stroke="#1f2937" stroke-width="8" stroke-linecap="round"/></g>
+                <g class="mine-leg-right"><path d="M66 92 C72 103 77 115 83 130" stroke="url(#minePants)" stroke-width="12" stroke-linecap="round"/><path d="M83 130 L97 133" stroke="#111827" stroke-width="8" stroke-linecap="round"/></g>
+                <path d="M37 54 Q60 40 83 54 L78 98 Q60 108 42 98 Z" fill="url(#mineSuit)" stroke="#ecfccb" stroke-width="2.5"/>
+                <path d="M46 60 H74 L71 76 H49 Z" fill="#365314" opacity=".55"/>
+                <path d="M40 58 C33 72 33 86 42 96" fill="none" stroke="rgba(255,255,255,.26)" stroke-width="3" stroke-linecap="round"/>
+                <rect x="76" y="60" width="14" height="30" rx="5" fill="#334155"/>
+                <circle cx="83" cy="67" r="3" fill="#fde047"/>
+                <g class="mine-arm-left"><path d="M42 62 C27 70 21 80 15 92" stroke="#84cc16" stroke-width="10" stroke-linecap="round"/><circle cx="14" cy="94" r="6" fill="url(#mineFace)"/></g>
+                <g class="mine-arm-right"><path d="M78 62 C94 72 100 82 105 93" stroke="#84cc16" stroke-width="10" stroke-linecap="round"/><circle cx="106" cy="94" r="6" fill="url(#mineFace)"/></g>
+                <circle cx="60" cy="37" r="20" fill="url(#mineFace)" stroke="#9a3412" stroke-width="1.5"/>
+                <path d="M38 35 Q39 12 60 11 Q81 12 82 35 Z" fill="url(#mineHelmet)" stroke="#ecfccb" stroke-width="2.4"/>
+                <path d="M35 34 H85" stroke="#365314" stroke-width="8" stroke-linecap="round"/>
+                <path d="M44 24 Q60 14 76 24" stroke="#d9f99d" stroke-width="5" fill="none" stroke-linecap="round"/>
+                <circle cx="52" cy="37" r="2.5" fill="#1e293b"/><circle cx="68" cy="37" r="2.5" fill="#1e293b"/>
+                <path d="M52 47 Q60 52 68 46" stroke="#9a3412" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+                <path d="M44 31 Q60 35 76 31" stroke="rgba(255,255,255,.28)" stroke-width="2" fill="none" stroke-linecap="round"/>
             </svg>`;
+        }
+
+        function mineExpertMapDecor() {
+            return `
+                <div class="mine-map-grid"></div>
+                <div class="mine-map-prop mine-sign" style="left:8%;top:18%"></div>
+                <div class="mine-map-prop bush" style="left:14%;top:18%"></div>
+                <div class="mine-map-prop rock" style="left:55%;top:18%"></div>
+                <div class="mine-map-prop flower" style="left:88%;top:22%"></div>
+                <div class="mine-map-prop bush" style="left:12%;top:56%"></div>
+                <div class="mine-map-prop crater" style="left:44%;top:33%"></div>
+                <div class="mine-map-prop rock" style="left:68%;top:45%"></div>
+                <div class="mine-map-prop flower" style="left:33%;top:56%"></div>
+                <div class="mine-map-prop crater" style="left:86%;top:55%"></div>
+                <div class="mine-map-prop bush" style="left:80%;top:83%"></div>
+                <div class="mine-map-prop rock" style="left:22%;top:85%"></div>
+            `;
         }
 
         function renderMineExpertConfig(g) {
@@ -3501,18 +3554,19 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const correctIdx=q.options.findIndex(o=>o.isCorrect);
             const progress=Math.round(((p.questionIndex+(isResult?1:0))/p.questions.length)*100);
             const markers=MINE_EXPERT_MARKERS.map((m,i)=>`<div class="mine-marker" style="left:${m[0]}%;top:${m[1]}%">✦</div>`).join('');
-            const answerNodes=q.options.map((o,i)=>{const pos=MINE_EXPERT_POSITIONS[i];let cls='';if(p.selectedIndex===i)cls+=' selected';if(isResult&&i===correctIdx)cls+=' correct';if(isResult&&p.feedback==='wrong'&&i===p.selectedIndex)cls+=' wrong';return `<button class="mine-answer-node${cls}" style="left:${pos.x}%;top:${pos.y}%" onclick="submitMineExpertAnswer(${i})" ${p.phase!=='answering'?'disabled':''}><span class="mine-letter">${String.fromCharCode(65+i)}</span><span class="mine-answer-text">${mfgEsc(o.text)}</span>${isResult&&i===correctIdx?'<i class="ph-fill ph-check-circle text-2xl text-emerald-300 ml-auto"></i>':''}</button>`}).join('');
+            const mapDecor = mineExpertMapDecor();
+            const answerNodes=q.options.map((o,i)=>{const pos=MINE_EXPERT_POSITIONS[i];let cls='';if(p.selectedIndex===i)cls+=' selected';if(isResult&&i===correctIdx)cls+=' correct';if(isResult&&p.feedback==='wrong'&&i===p.selectedIndex)cls+=' wrong';return `<button class="mine-answer-node${cls}" style="left:${pos.x}%;top:${pos.y}%" onclick="submitMineExpertAnswer(${i})" ${p.phase!=='answering'?'disabled':''}><span class="mine-letter">${String.fromCharCode(65+i)}</span><span class="mine-answer-text">${mfgEsc(o.text)}</span>${isResult&&i===correctIdx?'<i class="ph-fill ph-check-circle text-xl text-emerald-600 ml-auto"></i>':''}</button>`}).join('');
             const safe=isResult&&p.feedback==='correct'?`<div class="mine-safe-ring" style="left:${p.character.x}%;top:${p.character.y}%"></div>`:'';
             const boom=isResult&&p.feedback==='wrong'&&Number.isInteger(p.explosionIndex)?(()=>{const pos=MINE_EXPERT_POSITIONS[p.explosionIndex];return `<div class="mine-explosion" style="left:${pos.x}%;top:${pos.y}%"><div class="blast"></div><div class="smoke"></div></div>`})():'';
-            const feedback=isResult?(p.feedback==='correct'?`<div class="mine-result-pop rounded-2xl bg-emerald-500/15 border border-emerald-400/30 p-4 text-emerald-200"><div class="font-black text-xl">✅ Khu vực an toàn!</div><div class="text-sm mt-1">Chính xác. Chuyên gia đã vượt qua điểm mìn này.</div></div>`:`<div class="mine-result-pop rounded-2xl bg-rose-500/15 border border-rose-400/30 p-4 text-rose-200"><div class="font-black text-xl">💥 Mìn phát nổ!</div><div class="text-sm mt-1">Chưa đúng. Đáp án an toàn là <b>${String.fromCharCode(65+correctIdx)}</b>.</div></div>`):'';
+            const feedback=isResult?(p.feedback==='correct'?`<div class="mine-result-pop rounded-2xl bg-emerald-500/14 border border-emerald-300/35 p-4 text-emerald-100 shadow-lg"><div class="font-black text-xl">✅ Khu vực an toàn!</div><div class="text-sm mt-1">Chính xác. Chuyên gia đã vượt qua điểm mìn này.</div></div>`:`<div class="mine-result-pop rounded-2xl bg-rose-500/15 border border-rose-300/35 p-4 text-rose-100 shadow-lg"><div class="font-black text-xl">💥 Mìn phát nổ!</div><div class="text-sm mt-1">Chưa đúng. Đáp án an toàn là <b>${String.fromCharCode(65+correctIdx)}</b>.</div></div>`):'';
             const finishNext=p.questionIndex>=p.questions.length-1;
             return `<div class="mine-expert-shell w-full min-h-full h-full overflow-auto custom-scrollbar rounded-[1.5rem] p-3 md:p-4">
-                <div class="max-w-[1500px] mx-auto min-h-full flex flex-col gap-3">
-                    <div class="flex items-center justify-between gap-2 rounded-2xl border border-white/10 bg-black/20 backdrop-blur-md p-2.5 md:p-3 flex-shrink-0"><div class="flex items-center gap-2"><button onclick="backMineExpertToConfig()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 font-black text-xs"><i class="ph-bold ph-arrow-left mr-1"></i> <span class="hidden sm:inline">Về cấu hình</span></button><div><div class="text-[10px] uppercase tracking-[.2em] text-lime-200 font-black">Nhiệm vụ ${p.questionIndex+1}/${p.questions.length}</div><div class="font-black text-base md:text-xl">🧨 CHUYÊN GIA GỠ MÌN</div></div></div><div class="flex items-center gap-2"><button onclick="toggleMineExpertSound()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Âm thanh"><i class="ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}"></i></button><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-in"></i></button><button onclick="leaveMineExpertToMenu()" class="px-3 py-2 rounded-xl bg-red-500/20 border border-red-400/30 text-red-100 font-black text-xs">THOÁT</button></div></div>
-                    <div class="h-2.5 bg-white/10 rounded-full overflow-hidden flex-shrink-0"><div class="h-full bg-gradient-to-r from-lime-400 to-emerald-400 rounded-full transition-all duration-500" style="width:${progress}%"></div></div>
-                    <div class="grid grid-cols-1 lg:grid-cols-[minmax(300px,36%)_1fr] gap-3 flex-1 min-h-0">
-                        <aside class="rounded-3xl border border-white/10 bg-black/25 backdrop-blur-xl p-4 md:p-5 flex flex-col min-h-[320px]"><div class="flex items-center gap-3 mb-4">${getAvatarImg(p.contestant.avatarUrl,p.contestant.name,'w-12 h-12 border-2 border-lime-300/60 shadow-lg')}<div class="min-w-0"><div class="font-black text-lg truncate">${mfgEsc(p.contestant.name)}</div><div class="text-xs text-lime-200 truncate">${mfgEsc(p.contestant.subtitle)}</div></div></div><div class="grid grid-cols-3 gap-2 mb-4"><div class="rounded-xl bg-white/8 p-3 text-center"><div class="text-[10px] text-slate-300 font-bold">ĐÚNG</div><div class="text-2xl font-black text-lime-300">${p.correct}</div></div><div class="rounded-xl bg-white/8 p-3 text-center"><div class="text-[10px] text-slate-300 font-bold">ĐIỂM</div><div class="text-2xl font-black text-yellow-300">${p.score}</div></div><div class="rounded-xl bg-white/8 p-3 text-center"><div class="text-[10px] text-slate-300 font-bold">TIẾN ĐỘ</div><div class="text-2xl font-black text-cyan-300">${progress}%</div></div></div><div class="text-[11px] uppercase tracking-[.17em] text-lime-300 font-black mb-2">Câu ${p.questionIndex+1}</div><div class="rounded-2xl bg-white/8 border border-white/10 p-4 md:p-5 text-[clamp(22px,2.2vw,34px)] leading-[1.2] font-black flex-1 flex items-center">${mfgEsc(q.text)}</div><div id="mine-expert-status" class="mt-3 text-sm font-bold text-slate-200 min-h-[24px]">${isMoving?'🏃 Đang chạy tới đáp án...':isResult?(p.feedback==='correct'?'✅ Đã tới khu vực an toàn':'💥 Đã kích hoạt mìn'):'👉 Chọn một đáp án trên bản đồ'}</div>${feedback}${isResult?`<button onclick="${finishNext?'finishMineExpertGame()':'nextMineExpertQuestion()'}" class="mt-3 w-full py-3.5 rounded-xl bg-yellow-300 hover:bg-yellow-200 text-lime-950 font-black shadow-lg">${finishNext?'XEM KẾT QUẢ':'CÂU TIẾP THEO'} <i class="ph-bold ph-arrow-right ml-1"></i></button>`:''}</aside>
-                        <section class="mine-expert-map ${isResult&&p.feedback==='wrong'?'exploding':''} rounded-3xl border-2 border-lime-300/20 min-h-[480px] lg:min-h-[600px] shadow-2xl relative"><div class="mine-expert-path"></div>${markers}<div class="absolute left-1/2 bottom-2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/30 text-[10px] font-black text-lime-100 border border-white/10">⛺ ĐIỂM XUẤT PHÁT</div>${answerNodes}${safe}${boom}<div id="mine-expert-character" class="mine-expert-character ${isMoving?'moving':''}" style="left:${p.character.x}%;top:${p.character.y}%">${mineExpertSoldierSvg()}</div></section>
+                <div class="max-w-[1520px] mx-auto min-h-full flex flex-col gap-3">
+                    <div class="flex items-center justify-between gap-2 rounded-2xl border border-white/12 bg-black/18 backdrop-blur-md p-2.5 md:p-3 flex-shrink-0"><div class="flex items-center gap-2"><button onclick="backMineExpertToConfig()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 font-black text-xs"><i class="ph-bold ph-arrow-left mr-1"></i> <span class="hidden sm:inline">Về cấu hình</span></button><div><div class="text-[10px] uppercase tracking-[.2em] text-lime-200 font-black">Nhiệm vụ ${p.questionIndex+1}/${p.questions.length}</div><div class="font-black text-base md:text-xl">🧨 CHUYÊN GIA GỠ MÌN</div></div></div><div class="flex items-center gap-2"><button onclick="toggleMineExpertSound()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Âm thanh"><i class="ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}"></i></button><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20" title="Toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-in"></i></button><button onclick="leaveMineExpertToMenu()" class="px-3 py-2 rounded-xl bg-red-500/20 border border-red-300/25 text-red-50 font-black text-xs">THOÁT</button></div></div>
+                    <div class="h-2.5 bg-white/10 rounded-full overflow-hidden flex-shrink-0"><div class="h-full bg-gradient-to-r from-lime-300 via-emerald-300 to-cyan-300 rounded-full transition-all duration-500" style="width:${progress}%"></div></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-[minmax(320px,34%)_1fr] gap-3 flex-1 min-h-0">
+                        <aside class="rounded-3xl border border-white/12 bg-black/22 backdrop-blur-xl p-4 md:p-5 flex flex-col min-h-[320px] shadow-[0_20px_50px_rgba(0,0,0,.18)]"><div class="flex items-center gap-3 mb-4">${getAvatarImg(p.contestant.avatarUrl,p.contestant.name,'w-12 h-12 border-2 border-lime-300/60 shadow-lg')}<div class="min-w-0"><div class="font-black text-lg truncate">${mfgEsc(p.contestant.name)}</div><div class="text-xs text-lime-200 truncate">${mfgEsc(p.contestant.subtitle)}</div></div></div><div class="grid grid-cols-3 gap-2 mb-4"><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐÚNG</div><div class="text-2xl font-black text-lime-300">${p.correct}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">ĐIỂM</div><div class="text-2xl font-black text-yellow-300">${p.score}</div></div><div class="rounded-xl bg-white/9 p-3 text-center border border-white/8"><div class="text-[10px] text-slate-300 font-bold">TIẾN ĐỘ</div><div class="text-2xl font-black text-cyan-300">${progress}%</div></div></div><div class="text-[11px] uppercase tracking-[.17em] text-lime-300 font-black mb-2">Câu ${p.questionIndex+1}</div><div class="rounded-[1.75rem] bg-white/10 border border-white/12 p-4 md:p-5 text-[clamp(22px,2.2vw,34px)] leading-[1.18] font-black flex-1 flex items-center shadow-inner">${mfgEsc(q.text)}</div><div id="mine-expert-status" class="mt-3 text-sm font-bold text-slate-100 min-h-[24px]">${isMoving?'🏃 Đang chạy tới đáp án...':isResult?(p.feedback==='correct'?'✅ Đã tới khu vực an toàn':'💥 Đã kích hoạt mìn'):'👉 Chọn một đáp án trên bản đồ'}</div>${feedback}${isResult?`<button onclick="${finishNext?'finishMineExpertGame()':'nextMineExpertQuestion()'}" class="mt-3 w-full py-3.5 rounded-xl bg-yellow-300 hover:bg-yellow-200 text-lime-950 font-black shadow-lg">${finishNext?'XEM KẾT QUẢ':'CÂU TIẾP THEO'} <i class="ph-bold ph-arrow-right ml-1"></i></button>`:''}</aside>
+                        <section class="mine-expert-map ${isResult&&p.feedback==='wrong'?'exploding':''} rounded-3xl border-2 border-lime-200/25 min-h-[500px] lg:min-h-[620px] relative">${mapDecor}<div class="mine-expert-path"></div>${markers}<div class="absolute left-1/2 bottom-3 -translate-x-1/2 px-3 py-1 rounded-full bg-black/28 text-[10px] font-black text-lime-50 border border-white/14 mine-start-badge">⛺ ĐIỂM XUẤT PHÁT</div>${answerNodes}${safe}${boom}<div id="mine-expert-character" class="mine-expert-character ${isMoving?'moving':''}" style="left:${p.character.x}%;top:${p.character.y}%">${mineExpertSoldierSvg()}</div></section>
                     </div>
                 </div></div>`;
         }
