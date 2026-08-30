@@ -186,6 +186,75 @@
             background-color: #121118 !important;
         }
 
+
+        /* ============================================================
+           FULL MÀN HÌNH PHẦN CẤU HÌNH GÓC TRÒ CHƠI
+           Dùng fixed overlay thay vì Fullscreen API để Thư viện/AI modal
+           bên ngoài game-mount-point vẫn hiển thị bình thường.
+           ============================================================ */
+        body.game-config-fullscreen-open { overflow: hidden !important; }
+        #game-mount-point.game-config-fullscreen {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            height: 100dvh !important;
+            min-height: 100dvh !important;
+            max-width: 100vw !important;
+            max-height: 100dvh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            overflow: auto !important;
+            align-items: stretch !important;
+            justify-content: stretch !important;
+            background: #f8fafc !important;
+            z-index: 90000 !important;
+        }
+        #game-mount-point.game-config-fullscreen > * {
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 100% !important;
+            border-radius: 0 !important;
+        }
+        #game-mount-point.game-config-fullscreen .max-w-6xl,
+        #game-mount-point.game-config-fullscreen .max-w-7xl {
+            max-width: 1500px !important;
+        }
+        #game-mount-point.game-config-fullscreen .custom-scrollbar {
+            overscroll-behavior: contain;
+        }
+        .game-config-floating-close {
+            position: fixed;
+            left: 16px;
+            bottom: 16px;
+            z-index: 99990;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 42px;
+            padding: 9px 14px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,.78);
+            color: #fff;
+            background: rgba(15,23,42,.86);
+            box-shadow: 0 14px 32px rgba(15,23,42,.28);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .01em;
+        }
+        .game-config-floating-close:hover { background: rgba(15,23,42,.96); }
+        body.game-config-fullscreen-open #modal-container {
+            position: relative !important;
+            z-index: 100000 !important;
+        }
+        @media(max-width:640px){
+            .game-config-floating-close{left:10px;bottom:10px;min-height:38px;padding:8px 10px;font-size:11px}
+            #game-mount-point.game-config-fullscreen > *{padding-bottom:58px !important}
+        }
+
         /* Khi thu nhỏ khỏi Fullscreen, màn chơi vẫn giữ đủ chức năng và có thể cuộn. */
         #game-mount-point:not(:fullscreen):not(.fixed-fullscreen) {
             align-items: flex-start !important;
@@ -2021,7 +2090,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 return renderLayout();
             }
             const labels = {
-                'keo-co-kien': 'Kéo Co Kiến',
+                'keo-co-kien': 'Kéo co / Đua thuyền',
                 'ngon-tay-than-ky': 'Ngón Tay Thần Kỳ',
                 'quizz-nghieng-dau': 'Quizz Nghiêng Đầu',
                 'quet-the-qr': 'Quét Thẻ QR',
@@ -2372,12 +2441,49 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             else window.enterInteractiveGameFullscreen();
         };
 
+
+        // Cấu hình game mở full màn hình bằng fixed overlay để giáo viên thao tác dễ hơn.
+        window.syncGameConfigFullscreen = function(gameId, isConfig) {
+            const mount = document.getElementById('game-mount-point');
+            if (!mount) return;
+            const shouldOpen = !!isConfig && state.activeGame === gameId;
+            mount.classList.toggle('game-config-fullscreen', shouldOpen);
+            document.body.classList.toggle('game-config-fullscreen-open', shouldOpen);
+
+            const oldBtn = document.getElementById('game-config-floating-close');
+            if (!shouldOpen) {
+                if (oldBtn) oldBtn.remove();
+                return;
+            }
+
+            // Renderer của từng game có thể thay innerHTML, vì vậy nút đóng được gắn vào body.
+            if (!oldBtn) {
+                const btn = document.createElement('button');
+                btn.id = 'game-config-floating-close';
+                btn.className = 'game-config-floating-close';
+                btn.type = 'button';
+                btn.innerHTML = '<i class="ph-bold ph-arrow-left"></i><span>Về Góc trò chơi</span>';
+                btn.onclick = () => window.closeGameConfigFullscreen();
+                document.body.appendChild(btn);
+            }
+        };
+
+        window.closeGameConfigFullscreen = function() {
+            const current = state.activeGame;
+            window.syncGameConfigFullscreen(current, false);
+            window.cleanupCurrentGame && window.cleanupCurrentGame(null);
+            if (window.exitInteractiveGameFullscreen) window.exitInteractiveGameFullscreen();
+            state.activeGame = null;
+            renderLayout();
+        };
+
         ['fullscreenchange','webkitfullscreenchange','MSFullscreenChange'].forEach(evt => {
             document.addEventListener(evt, () => setTimeout(window.updateInteractiveGameFullscreenButtons, 0));
         });
 
         window.cleanupCurrentGame = function(nextGameId = null) {
             const current = state.activeGame;
+            if (current && current !== nextGameId && window.syncGameConfigFullscreen) window.syncGameConfigFullscreen(current, false);
             if (current && current !== 'quet-the-qr' && current !== nextGameId && window.stopGameBackgroundMusic) window.stopGameBackgroundMusic(true);
             if (current === 'ngon-tay-than-ky' && current !== nextGameId && window.cleanupMagicFingerGame) window.cleanupMagicFingerGame(true);
             if (current === 'quizz-nghieng-dau' && current !== nextGameId && window.cleanupHeadTiltGame) window.cleanupHeadTiltGame(true);
@@ -3212,6 +3318,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const container = document.getElementById('game-mount-point');
             if (!container) return;
             const g = ensureSpaceRaceState();
+            window.syncGameConfigFullscreen?.('space-race', g.view !== 'play');
             if (g.view === 'play') renderSpaceRacePlay(container, g);
             else renderSpaceRaceConfig(container, g);
         };
@@ -3628,7 +3735,9 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         window.initMineExpertGame = function() {
             const mount=document.getElementById('game-mount-point'); if(!mount)return;
             const g=ensureMineExpertState();
-            if(g.view==='config'||!g.play){mineExpertRemoveKeyboard();mount.innerHTML=renderMineExpertConfig(g);return;}
+            const isConfig = g.view==='config'||!g.play;
+            window.syncGameConfigFullscreen?.('mine-expert', isConfig);
+            if(isConfig){mineExpertRemoveKeyboard();mount.innerHTML=renderMineExpertConfig(g);return;}
             if(g.play.status==='finished'){mineExpertRemoveKeyboard();mount.innerHTML=renderMineExpertFinished(g,g.play);return;}
             mineExpertInstallKeyboard();
             mount.innerHTML=renderMineExpertPlay(g,g.play);
@@ -4088,6 +4197,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         window.initMillionaireGame = function() {
             const mount=document.getElementById('game-mount-point'); if(!mount)return;
             const g=ensureMillionaireState();
+            window.syncGameConfigFullscreen?.('millionaire', g.view!=='play');
             mount.innerHTML = g.view==='play' ? millionaireRenderPlay(g) : millionaireRenderConfig(g);
             setTimeout(()=>window.updateInteractiveGameFullscreenButtons && window.updateInteractiveGameFullscreenButtons(),0);
         };
@@ -4271,14 +4381,14 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         window.importMagicFingerFromKeoCo = function() {
             const g = ensureMagicFingerState();
             const source = state.keoCoGame?.questions?.filter(q => !q.isDeleted) || [];
-            if (!source.length) return showToast('Kéo Co Kiến chưa có câu hỏi khả dụng!', 'error');
+            if (!source.length) return showToast('Kéo co / Đua thuyền chưa có câu hỏi khả dụng!', 'error');
             g.questions = source.map(q => ({
                 id: Date.now() + Math.random(),
                 text: q.text,
                 options: q.options.map(o => ({ text: o.text, isCorrect: !!o.isCorrect }))
             }));
             window.initMagicFingerGame();
-            showToast(`Đã lấy ${g.questions.length} câu hỏi từ Kéo Co Kiến!`, 'success');
+            showToast(`Đã lấy ${g.questions.length} câu hỏi từ Kéo co / Đua thuyền!`, 'success');
         };
 
         function magicFingerSound(type) {
@@ -4657,6 +4767,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const container = document.getElementById('game-mount-point');
             if (!container) return;
             const g = ensureMagicFingerState();
+            window.syncGameConfigFullscreen?.('ngon-tay-than-ky', g.view !== 'play' || !g.play);
 
             if (g.view !== 'play' || !g.play) {
                 const questionRows = g.questions.map((q, qi) => {
@@ -4741,7 +4852,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                                     <div class="flex flex-wrap gap-2">
                                         <button onclick="openGameAIGeneratorModal('ngon-tay-than-ky')" class="px-4 py-2 bg-fuchsia-600 text-white rounded-xl text-xs font-black hover:bg-fuchsia-700"><i class="ph-fill ph-sparkle mr-1"></i> AI tạo nhanh</button>
                                         <button onclick="openGameQuestionLibrary('ngon-tay-than-ky')" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700"><i class="ph-fill ph-books mr-1"></i> Thư viện (${g.questionLibrary.length})</button>
-                                        <button onclick="importMagicFingerFromKeoCo()" class="px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold hover:bg-indigo-100"><i class="ph-fill ph-copy mr-1"></i> Lấy từ Kéo Co Kiến</button>
+                                        <button onclick="importMagicFingerFromKeoCo()" class="px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold hover:bg-indigo-100"><i class="ph-fill ph-copy mr-1"></i> Lấy từ Kéo co / Đua thuyền</button>
                                         <button onclick="addMagicFingerQuestion()" class="px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-black hover:bg-amber-600"><i class="ph-bold ph-plus mr-1"></i> Thêm câu hỏi</button>
                                     </div>
                                 </div>
@@ -4938,9 +5049,9 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const g=ensureHeadTiltState(); if(g.questions.length<=1)return showToast('Cần ít nhất 1 câu hỏi!','error'); g.questions.splice(i,1); window.initHeadTiltGame();
         };
         window.importHeadTiltFromKeoCo = function() {
-            const src=state.keoCoGame?.questions?.filter(q=>!q.isDeleted)||[]; if(!src.length)return showToast('Kéo Co Kiến chưa có câu hỏi!','error');
+            const src=state.keoCoGame?.questions?.filter(q=>!q.isDeleted)||[]; if(!src.length)return showToast('Kéo co / Đua thuyền chưa có câu hỏi!','error');
             ensureHeadTiltState().questions=src.map(q=>({id:Date.now()+Math.random(),text:q.text,options:q.options.map(o=>({text:o.text,isCorrect:!!o.isCorrect}))}));
-            window.initHeadTiltGame(); showToast('Đã lấy câu hỏi từ Kéo Co Kiến!','success');
+            window.initHeadTiltGame(); showToast('Đã lấy câu hỏi từ Kéo co / Đua thuyền!','success');
         };
 
         function resetHeadTiltMotionState({ keepFaceLock=false, keepNeutral=false }={}) {
@@ -5179,6 +5290,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
 
         window.initHeadTiltGame=function(){
             const c=document.getElementById('game-mount-point');if(!c)return;const g=ensureHeadTiltState();
+            window.syncGameConfigFullscreen?.('quizz-nghieng-dau', g.view!=='play'||!g.play);
             if(g.view!=='play'||!g.play){
                 const rows=g.questions.map((q,qi)=>{const ci=Math.max(0,q.options.findIndex(o=>o.isCorrect));return `<div class="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm"><div class="flex gap-2 items-center"><span class="w-9 h-9 rounded-xl bg-pink-100 text-pink-700 font-black flex items-center justify-center">${qi+1}</span><input value="${mfgEsc(q.text)}" oninput="updateHeadTiltQuestion(${qi},'text',this.value)" class="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl font-bold outline-none focus:border-pink-400"><button onclick="deleteHeadTiltQuestion(${qi})" class="w-9 h-9 bg-red-50 text-red-500 rounded-xl"><i class="ph-bold ph-trash"></i></button></div><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${q.options.map((o,oi)=>`<div class="flex gap-2 items-center bg-slate-50 p-2 rounded-xl"><span class="text-xs font-black text-slate-400 w-8">${['⬆','➡','⬇','⬅'][oi]}</span><input value="${mfgEsc(o.text)}" oninput="updateHeadTiltQuestion(${qi},'option',this.value,${oi})" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-semibold"></div>`).join('')}</div><div class="text-xs font-bold text-slate-600">Đáp án đúng: <select onchange="updateHeadTiltQuestion(${qi},'correct',this.value)" class="ml-2 px-3 py-2 border border-slate-200 rounded-lg">${[0,1,2,3].map(i=>`<option value="${i}" ${i===ci?'selected':''}>${['Lên','Phải','Xuống','Trái'][i]} - ${mfgEsc(q.options[i]?.text||'')}</option>`).join('')}</select></div></div>`}).join('');
                 c.innerHTML=`<div class="w-full h-full overflow-y-auto custom-scrollbar bg-gradient-to-br from-pink-50 via-white to-purple-50 rounded-[1.5rem] p-4 md:p-6"><div class="max-w-6xl mx-auto space-y-5"><div class="bg-white rounded-[2rem] border border-pink-100 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm"><div class="flex items-center gap-4"><div class="w-14 h-14 bg-gradient-to-br from-pink-500 to-purple-600 text-white rounded-2xl flex items-center justify-center"><i class="ph-fill ph-smiley-wink text-3xl"></i></div><div><div class="text-xs uppercase tracking-widest text-pink-600 font-black">Camera tương tác</div><h3 class="text-2xl font-black text-slate-800">Quizz Nghiêng Đầu</h3><p class="text-xs text-slate-500">Đưa đầu lên, phải, xuống hoặc trái để chọn đáp án tương ứng.</p></div></div><button onclick="startHeadTiltGame()" class="px-7 py-3.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-black rounded-2xl shadow-lg"><i class="ph-fill ph-play-circle mr-1"></i> BẮT ĐẦU CHƠI</button></div>
@@ -5405,14 +5517,14 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
 
         window.importQRFromKeoCo = function() {
             const src = state.keoCoGame?.questions?.filter(q => !q.isDeleted) || [];
-            if (!src.length) return showToast('Kéo Co Kiến chưa có câu hỏi!', 'error');
+            if (!src.length) return showToast('Kéo co / Đua thuyền chưa có câu hỏi!', 'error');
             ensureQRQuizState().questions = src.map(q => ({
                 id: Date.now() + Math.random(),
                 text: q.text,
                 options: q.options.map(o => ({text:o.text,isCorrect:!!o.isCorrect}))
             }));
             window.initQRQuizGame();
-            showToast('Đã lấy câu hỏi từ Kéo Co Kiến!', 'success');
+            showToast('Đã lấy câu hỏi từ Kéo co / Đua thuyền!', 'success');
         };
 
         function qrClassShuffle(arr) {
@@ -6944,6 +7056,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const c = document.getElementById('game-mount-point');
             if (!c) return;
             const g = ensureQRQuizState();
+            window.syncGameConfigFullscreen?.('quet-the-qr', g.view !== 'play' || !g.play);
 
             if (g.view !== 'play' || !g.play) {
                 const rows = g.questions.map((q,qi) => {
@@ -7263,6 +7376,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             }
 
             const kState = state.keoCoGame;
+            window.syncGameConfigFullscreen?.('keo-co-kien', kState.view !== 'play');
 
             // Các hàm xử lý sự kiện nội bộ
             window.updateKeoCoSetting = (key, value, type = 'string') => { 
@@ -7311,16 +7425,26 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                         }
                     }
 
-                    // Kiểm tra điều kiện thắng
+                    // Kiểm tra điều kiện thắng.
+                    // Đua thuyền: tiến độ dựa trực tiếp vào SỐ CÂU ĐÚNG; đội đạt mốc trước sẽ chạm đích.
+                    // Kéo co: giữ nguyên logic chênh lệch/mốc hiện có.
                     const winPoints = parseInt(kState.settings.pointsToWin) || 7;
-                    if (kState.settings.playMode === 'milestone') {
+                    if (kState.settings.gameType === 'boat') {
                         if (team.score >= winPoints) {
                             p.status = 'finished';
+                            p.winnerTeam = teamNum;
+                            if (window.keocoInterval) clearInterval(window.keocoInterval);
+                        }
+                    } else if (kState.settings.playMode === 'milestone') {
+                        if (team.score >= winPoints) {
+                            p.status = 'finished';
+                            p.winnerTeam = teamNum;
                             if (window.keocoInterval) clearInterval(window.keocoInterval);
                         }
                     } else {
                         if (Math.abs(p.ropeOffset) >= winPoints) {
                             p.status = 'finished';
+                            p.winnerTeam = p.ropeOffset < 0 ? 1 : 2;
                             if (window.keocoInterval) clearInterval(window.keocoInterval);
                         }
                     }
@@ -7976,9 +8100,11 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 const shiftPercent = safeRopeRatio * visualWinLineOffset;
                 const isBoatGame = kState.settings.gameType === 'boat';
                 const visualWinner = p.status === 'finished'
-                    ? (kState.settings.playMode === 'milestone'
-                        ? (team1.score > team2.score ? 1 : team2.score > team1.score ? 2 : 0)
-                        : (p.ropeOffset < 0 ? 1 : p.ropeOffset > 0 ? 2 : 0))
+                    ? (isBoatGame
+                        ? (p.winnerTeam || (team1.score > team2.score ? 1 : team2.score > team1.score ? 2 : 0))
+                        : (kState.settings.playMode === 'milestone'
+                            ? (team1.score > team2.score ? 1 : team2.score > team1.score ? 2 : 0)
+                            : (p.ropeOffset < 0 ? 1 : p.ropeOffset > 0 ? 2 : 0)))
                     : 0;
                 const tugSceneClass = p.status === 'finished'
                     ? (visualWinner === 1 ? 'blue-win' : visualWinner === 2 ? 'red-win' : 'balanced')
@@ -7992,42 +8118,53 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 
                 let middleVisualHtml = '';
                 if (isBoatGame) {
-                    const boat1Offset = Math.min(85, Math.max(5, (team1.score / kState.settings.pointsToWin) * 80));
-                    const boat2Offset = Math.min(85, Math.max(5, (team2.score / kState.settings.pointsToWin) * 80));
+                    const boatTarget = Math.max(1, parseInt(kState.settings.pointsToWin) || 7);
+                    const blueProgress = Math.max(0, Math.min(1, team1.score / boatTarget));
+                    const redProgress = Math.max(0, Math.min(1, team2.score / boatTarget));
+                    // Tọa độ tính theo % của chính ảnh H1, không dùng pixel cố định.
+                    // H1 có vạch đích ở ~91.5% chiều ngang. Kích thước thuyền được tính để mũi thuyền chạm vạch ở 100%.
+                    const boatStartX = 18;
+                    const boatFinishX = 78;
+                    const blueX = boatStartX + blueProgress * (boatFinishX - boatStartX);
+                    const redX = boatStartX + redProgress * (boatFinishX - boatStartX);
+                    const blueFromX = boatStartX + Math.max(0, (team1.score - 1) / boatTarget) * (boatFinishX - boatStartX);
+                    const redFromX = boatStartX + Math.max(0, (team2.score - 1) / boatTarget) * (boatFinishX - boatStartX);
+                    const blueSurge = Date.now() - (p.lastPullAt || 0) < 900 && p.lastPullTeam === 1;
+                    const redSurge = Date.now() - (p.lastPullAt || 0) < 900 && p.lastPullTeam === 2;
 
                     middleVisualHtml = `
-                        <div class="bg-gradient-to-b from-sky-300 via-blue-400 to-indigo-600 rounded-[1.5rem] relative h-full min-h-[250px] overflow-hidden flex flex-col justify-around p-4 border-4 border-slate-300 shadow-inner flex-[1.5] lg:flex-none lg:w-[35%] xl:w-[40%]">
-                            <!-- Vạch đích -->
-                            <div class="absolute right-8 top-0 bottom-0 w-2 border-r-4 border-dashed border-yellow-300 z-10 flex flex-col justify-around">
-                                <i class="ph-fill ph-flag-banner text-yellow-300 text-3xl -ml-3"></i>
-                            </div>
-
-                            <!-- Track Đội 1 (Xanh) -->
-                            <div class="relative w-full h-24 bg-blue-500/30 rounded-2xl border-2 border-white/30 flex items-center px-4 overflow-hidden">
-                                <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent animate-pulse"></div>
-                                <div class="font-black text-white/40 text-xs uppercase tracking-widest absolute left-2 top-2">${escapeHtmlAttr(kState.settings.team1Name)}</div>
-                                <div class="absolute transition-all duration-700 ease-out" style="left: ${boat1Offset}%">
-                                    <svg viewBox="0 0 120 60" class="w-20 h-12 drop-shadow-lg">
-                                        <path d="M10,40 Q60,55 110,35 L100,20 L20,20 Z" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
-                                        <circle cx="35" cy="15" r="7" fill="#ffd1b3"/>
-                                        <circle cx="60" cy="15" r="7" fill="#ffd1b3"/>
-                                        <circle cx="85" cy="15" r="7" fill="#ffd1b3"/>
-                                        <path d="M10,40 L115,40" stroke="#facc15" stroke-width="3"/>
-                                    </svg>
+                        <div class="boat-race-visual rounded-[1.5rem] relative h-full min-h-[250px] overflow-hidden flex items-center justify-center border-4 border-cyan-200/70 shadow-inner flex-[1.5] lg:flex-none lg:w-[35%] xl:w-[40%] bg-[#13a8ed] p-1.5 md:p-2">
+                            <style>
+                                .boat-race-visual{isolation:isolate;background:linear-gradient(180deg,#93e7ff,#35b8f5 50%,#3555ee)}
+                                .boat-race-stage{position:relative;width:min(100%,430px);aspect-ratio:1024/1535;max-height:100%;overflow:hidden;border-radius:20px;box-shadow:0 18px 38px rgba(2,49,112,.34),inset 0 0 0 1px rgba(255,255,255,.25)}
+                                .boat-race-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block;pointer-events:none;user-select:none}
+                                .boat-racer{position:absolute;width:35%;height:auto;transform:translate(-50%,-50%);z-index:8;pointer-events:none;will-change:left;filter:drop-shadow(0 9px 8px rgba(0,42,82,.25))}
+                                .boat-racer img{display:block;width:100%;height:auto;object-fit:contain;user-select:none;-webkit-user-drag:none}
+                                .boat-racer.blue{top:32%}.boat-racer.red{top:72.7%}
+                                .boat-racer.surge{animation:boatRaceAdvance .72s cubic-bezier(.18,.78,.18,1) both}
+                                .boat-racer.surge .boat-racer-img{animation:boatRaceBob .18s ease-in-out 3 alternate}
+                                .boat-racer .boat-wake{position:absolute;left:24%;top:52%;width:30%;height:15%;border-radius:50%;background:radial-gradient(ellipse at center,rgba(255,255,255,.88),rgba(186,230,253,.45) 48%,transparent 72%);filter:blur(.7px);opacity:.60;transform:translate(-100%,-50%);z-index:-1}
+                                .boat-racer.surge .boat-wake{animation:boatWake .7s ease-out both}
+                                .boat-race-progress{position:absolute;z-index:10;right:3.5%;padding:3px 7px;border-radius:999px;color:#fff;font-size:10px;font-weight:1000;text-shadow:0 1px 2px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.54);box-shadow:0 5px 12px rgba(0,0,0,.12);backdrop-filter:blur(4px)}
+                                .boat-race-progress.blue{top:23.3%;background:rgba(2,132,199,.72)}.boat-race-progress.red{top:67.2%;background:rgba(225,29,72,.72)}
+                                @keyframes boatRaceAdvance{from{left:var(--from-x)}to{left:var(--to-x)}}
+                                @keyframes boatRaceBob{from{transform:translateY(0) rotate(-.7deg)}to{transform:translateY(-2px) rotate(.7deg)}}
+                                @keyframes boatWake{0%{opacity:.15;transform:translate(-72%,-50%) scaleX(.55)}45%{opacity:.85}100%{opacity:.25;transform:translate(-132%,-50%) scaleX(1.45)}}
+                                @media(max-width:1100px){.boat-race-stage{width:min(100%,360px)}.boat-race-progress{font-size:9px;padding:2px 6px}}
+                                @media(max-width:768px){.boat-race-visual{min-height:440px}.boat-race-stage{width:min(92vw,330px)}.boat-racer{width:36%}}
+                                @media(prefers-reduced-motion:reduce){.boat-racer.surge,.boat-racer.surge .boat-racer-img,.boat-racer.surge .boat-wake{animation-duration:.01ms!important;animation-iteration-count:1!important}}
+                            </style>
+                            <div class="boat-race-stage" aria-label="Đường đua thuyền">
+                                <img src="assets/boat-race-h1.png" class="boat-race-bg" alt="Nền đường đua thuyền" draggable="false">
+                                <div class="boat-race-progress blue">${team1.score}/${boatTarget} · ${Math.round(blueProgress*100)}%</div>
+                                <div class="boat-race-progress red">${team2.score}/${boatTarget} · ${Math.round(redProgress*100)}%</div>
+                                <div class="boat-racer blue ${blueSurge ? 'surge' : ''}" style="left:${blueX}%;--from-x:${blueFromX}%;--to-x:${blueX}%">
+                                    <span class="boat-wake"></span>
+                                    <img src="assets/boat-blue-h12.png" class="boat-racer-img" alt="Thuyền Đội Xanh" draggable="false">
                                 </div>
-                            </div>
-
-                            <!-- Track Đội 2 (Đỏ) -->
-                            <div class="relative w-full h-24 bg-red-500/30 rounded-2xl border-2 border-white/30 flex items-center px-4 overflow-hidden">
-                                <div class="font-black text-white/40 text-xs uppercase tracking-widest absolute left-2 top-2">${escapeHtmlAttr(kState.settings.team2Name)}</div>
-                                <div class="absolute transition-all duration-700 ease-out" style="left: ${boat2Offset}%">
-                                    <svg viewBox="0 0 120 60" class="w-20 h-12 drop-shadow-lg">
-                                        <path d="M10,40 Q60,55 110,35 L100,20 L20,20 Z" fill="#dc2626" stroke="#ffffff" stroke-width="2"/>
-                                        <circle cx="35" cy="15" r="7" fill="#ffd1b3"/>
-                                        <circle cx="60" cy="15" r="7" fill="#ffd1b3"/>
-                                        <circle cx="85" cy="15" r="7" fill="#ffd1b3"/>
-                                        <path d="M10,40 L115,40" stroke="#facc15" stroke-width="3"/>
-                                    </svg>
+                                <div class="boat-racer red ${redSurge ? 'surge' : ''}" style="left:${redX}%;--from-x:${redFromX}%;--to-x:${redX}%">
+                                    <span class="boat-wake"></span>
+                                    <img src="assets/boat-red-h11.png" class="boat-racer-img" alt="Thuyền Đội Đỏ" draggable="false">
                                 </div>
                             </div>
                         </div>
@@ -8128,8 +8265,8 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                                     <h2 class="text-3xl md:text-5xl font-black text-slate-800 mb-4 tracking-tight">TRÒ CHƠI KẾT THÚC!</h2>
                                     <div class="text-xl md:text-2xl font-bold text-slate-600 mb-8 bg-slate-50 px-8 py-5 rounded-2xl border border-slate-200 w-full shadow-inner">
                                         Đội chiến thắng:<br>
-                                        <span class="text-4xl md:text-5xl mt-3 block font-black ${p.ropeOffset < 0 ? 'text-blue-600' : p.ropeOffset > 0 ? 'text-red-600' : 'text-slate-800'} uppercase drop-shadow-md">
-                                            ${p.ropeOffset < 0 ? escapeHtmlAttr(kState.settings.team1Name) : p.ropeOffset > 0 ? escapeHtmlAttr(kState.settings.team2Name) : 'HÒA NHAU!'}
+                                        <span class="text-4xl md:text-5xl mt-3 block font-black ${visualWinner === 1 ? 'text-blue-600' : visualWinner === 2 ? 'text-red-600' : 'text-slate-800'} uppercase drop-shadow-md">
+                                            ${visualWinner === 1 ? escapeHtmlAttr(kState.settings.team1Name) : visualWinner === 2 ? escapeHtmlAttr(kState.settings.team2Name) : 'HÒA NHAU!'}
                                         </span>
                                     </div>
                                     <div class="flex gap-4 w-full">
@@ -8194,7 +8331,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                     
                     <!-- Form Header -->
                     <div class="px-6 py-4 border-b border-indigo-100 bg-indigo-50 flex justify-between items-center flex-shrink-0">
-                        <h2 class="text-xl font-black text-indigo-800 flex items-center gap-2"><i class="ph-fill ph-gear"></i> Chỉnh sửa Kéo Co / Đua Thuyền</h2>
+                        <h2 class="text-xl font-black text-indigo-800 flex items-center gap-2"><i class="ph-fill ph-gear"></i> Cấu hình Kéo co / Đua thuyền</h2>
                         <button onclick="startKeoCoGame()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2"><i class="ph-bold ph-floppy-disk"></i> Lưu & Bắt đầu</button>
                     </div>
 
@@ -8227,7 +8364,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-600 mb-2">Số điểm chênh lệch để thắng:</label>
+                                    <label class="block text-xs font-bold text-slate-600 mb-2">${kState.settings.gameType==='boat'?'Số câu đúng để về đích:':'Số điểm chênh lệch để thắng:'}</label>
                                     <input type="number" value="${kState.settings.pointsToWin}" min="1" max="20" onchange="updateKeoCoSetting('pointsToWin', parseInt(this.value)||7)" class="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-bold outline-none focus:border-indigo-500 shadow-sm">
                                 </div>
 
@@ -8253,7 +8390,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-600 mb-2"><i class="ph-bold ph-game-controller"></i> Môn thi đấu</label>
+                                    <label class="block text-xs font-bold text-slate-600 mb-2"><i class="ph-bold ph-game-controller"></i> Chọn chế độ</label>
                                     <div class="flex gap-4">
                                         <label class="flex items-center gap-2 p-2.5 border ${kState.settings.gameType==='keoco'?'border-indigo-500 bg-indigo-50':'border-slate-200 bg-white'} rounded-lg cursor-pointer flex-1">
                                             <input type="radio" name="gType" value="keoco" ${kState.settings.gameType==='keoco'?'checked':''} onchange="updateKeoCoSetting('gameType', this.value, 'radio')" class="accent-indigo-600"> 
@@ -8261,7 +8398,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                                         </label>
                                         <label class="flex items-center gap-2 p-2.5 border ${kState.settings.gameType==='boat'?'border-indigo-500 bg-indigo-50':'border-slate-200 bg-white'} rounded-lg cursor-pointer flex-1">
                                             <input type="radio" name="gType" value="boat" ${kState.settings.gameType==='boat'?'checked':''} onchange="updateKeoCoSetting('gameType', this.value, 'radio')" class="accent-indigo-600"> 
-                                            <span class="text-sm font-semibold text-slate-700">Đua thuyền rồng</span>
+                                            <span class="text-sm font-semibold text-slate-700">Đua thuyền</span>
                                         </label>
                                     </div>
                                 </div>
@@ -8535,7 +8672,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                     <!-- Menu Buttons -->
                     <div class="flex flex-wrap gap-4 px-2 flex-shrink-0">
                         <button onclick="switchGame('keo-co-kien')" class="px-6 py-3.5 bg-white border-2 border-indigo-200 text-indigo-700 font-bold rounded-2xl shadow-sm hover:shadow-md hover:bg-indigo-50 hover:border-indigo-300 transition-all flex items-center gap-2 ${state.activeGame === 'keo-co-kien' ? 'ring-4 ring-indigo-100 bg-indigo-50' : ''}">
-                            <i class="ph-fill ph-bug text-xl"></i> Kéo Co Kiến
+                            <i class="ph-fill ph-waves text-xl"></i> Kéo co / Đua thuyền
                         </button>
                         <button onclick="switchGame('quizz-nghieng-dau')" class="px-6 py-3.5 bg-white border-2 border-pink-200 text-pink-700 font-bold rounded-2xl shadow-sm hover:shadow-md hover:bg-pink-50 hover:border-pink-300 transition-all flex items-center gap-2 ${state.activeGame === 'quizz-nghieng-dau' ? 'ring-4 ring-pink-100 bg-pink-50' : ''}">
                             <i class="ph-fill ph-question text-xl"></i> Quizz Nghiêng Đầu
