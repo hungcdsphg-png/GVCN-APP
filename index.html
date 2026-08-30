@@ -4203,6 +4203,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             handLandmarker: null,
             raf: null,
             timerInterval: null,
+            freezeTimers: { left: null, right: null },
             lastDetectAt: 0,
             lastVideoTime: -1,
             running: false,
@@ -4213,6 +4214,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             }
         };
         const MAGIC_FINGER_HAND_REMOVED_MS = 400; // trong khoảng yêu cầu 300–500ms
+        const MAGIC_FINGER_FREEZE_MS = 3000;      // sai -> đóng băng riêng đúng 3 giây
         ['left','right'].forEach(side => {
             const d = window.magicFingerRuntime.detected?.[side] || {};
             window.magicFingerRuntime.detected[side] = { value:0, since:0, armed:true, present:false, removedSince:0, blockedValue:0, ...d };
@@ -4235,7 +4237,8 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                         title: 'Cuộc Đua Ngôi Sao',
                         timeLimit: 90,
                         starsToWin: 6,
-                        wrongFreeze: 2,
+                        wrongFreeze: 3,
+                        questionMode: 'shared', // shared | separate
                         holdMs: 650,
                         team1Name: 'Người chơi bên trái',
                         team2Name: 'Người chơi bên phải',
@@ -4285,7 +4288,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if (!g.settings) g.settings = {};
             const defaults = {
                 title: 'Cuộc Đua Ngôi Sao', timeLimit: 90, starsToWin: 6,
-                wrongFreeze: 2, holdMs: 650,
+                wrongFreeze: 3, questionMode: 'shared', holdMs: 650,
                 team1Name: 'Người chơi bên trái', team2Name: 'Người chơi bên phải',
                 questionOrder: 'random', shuffleAnswers: true,
                 cameraEnabled: true, soundEnabled: true
@@ -4293,6 +4296,9 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             Object.keys(defaults).forEach(k => {
                 if (typeof g.settings[k] === 'undefined') g.settings[k] = defaults[k];
             });
+            if (!['shared','separate'].includes(g.settings.questionMode)) g.settings.questionMode = 'shared';
+            // Yêu cầu gameplay: trả lời sai luôn đóng băng đúng 3 giây.
+            g.settings.wrongFreeze = 3;
             if (!Array.isArray(g.questions)) g.questions = [];
             if (!Array.isArray(g.questionLibrary)) g.questionLibrary = [];
             return g;
@@ -4307,39 +4313,138 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             return a;
         }
 
+        function magicFingerFreshSideState(questionIndex = 0) {
+            return {
+                state: 'WAIT_ANSWER',
+                questionIndex: Number(questionIndex) || 0,
+                freezeUntil: 0,
+                correctOptionIndex: null,
+                message: ''
+            };
+        }
+
+        function magicFingerEnsureSideStates(p) {
+            if (!p.sideStates) p.sideStates = {};
+            ['left','right'].forEach(side => {
+                if (!p.sideStates[side]) p.sideStates[side] = magicFingerFreshSideState(0);
+                const s = p.sideStates[side];
+                if (!s.state) s.state = 'WAIT_ANSWER';
+                if (!Number.isFinite(Number(s.freezeUntil))) s.freezeUntil = 0;
+                if (!Number.isFinite(Number(s.questionIndex))) s.questionIndex = 0;
+            });
+            return p.sideStates;
+        }
+
+        function magicFingerGetSideState(p, side) {
+            magicFingerEnsureSideStates(p);
+            return p.sideStates[side];
+        }
+
+        function magicFingerResetRuntimeSide(side) {
+            const rt = window.magicFingerRuntime;
+            if (!rt?.detected) return;
+            rt.detected[side] = { value: 0, since: 0, armed: true, present: false, removedSince: 0, blockedValue: 0 };
+        }
+
+        function magicFingerClearFreezeTimer(side) {
+            const rt = window.magicFingerRuntime;
+            if (!rt.freezeTimers) rt.freezeTimers = { left:null, right:null };
+            if (rt.freezeTimers[side]) clearTimeout(rt.freezeTimers[side]);
+            rt.freezeTimers[side] = null;
+        }
+
+        function magicFingerClearAllFreezeTimers() {
+            magicFingerClearFreezeTimer('left');
+            magicFingerClearFreezeTimer('right');
+        }
+
+        function magicFingerCurrentQuestion(p, side) {
+            const mode = p.questionMode || 'shared';
+            if (mode === 'separate') {
+                const list = side === 'left' ? p.leftQuestions : p.rightQuestions;
+                const s = magicFingerGetSideState(p, side);
+                if (!Array.isArray(list) || !list.length) return null;
+                const idx = ((Number(s.questionIndex)||0) % list.length + list.length) % list.length;
+                return list[idx];
+            }
+            if (!Array.isArray(p.questions) || !p.questions.length) return null;
+            const idx = ((Number(p.questionIndex)||0) % p.questions.length + p.questions.length) % p.questions.length;
+            return p.questions[idx];
+        }
+
+        function magicFingerPrepareOptionsForSide(p, side, q) {
+            const opts = (q?.options || []).map(o => ({ ...o }));
+            p[side === 'left' ? 'leftOptions' : 'rightOptions'] = ensureMagicFingerState().settings.shuffleAnswers ? magicFingerShuffle(opts) : opts;
+        }
+
+        function prepareMagicFingerSideQuestion(side, advance = false) {
+            const g = ensureMagicFingerState();
+            const p = g.play;
+            if (!p) return;
+            const list = side === 'left' ? p.leftQuestions : p.rightQuestions;
+            const s = magicFingerGetSideState(p, side);
+            if (!Array.isArray(list) || !list.length) return;
+
+            if (advance) s.questionIndex = Number(s.questionIndex || 0) + 1;
+            if (s.questionIndex >= list.length) {
+                s.questionIndex = 0;
+                if (g.settings.questionOrder === 'random') {
+                    const key = side === 'left' ? 'leftQuestions' : 'rightQuestions';
+                    p[key] = magicFingerShuffle(p[key]);
+                }
+            }
+            s.state = 'WAIT_ANSWER';
+            s.freezeUntil = 0;
+            s.correctOptionIndex = null;
+            s.message = '';
+            magicFingerClearFreezeTimer(side);
+            magicFingerPrepareOptionsForSide(p, side, magicFingerCurrentQuestion(p, side));
+            magicFingerResetRuntimeSide(side);
+        }
+
         function prepareMagicFingerRound() {
             const g = ensureMagicFingerState();
             const p = g.play;
-            if (!p || !Array.isArray(p.questions) || p.questions.length === 0) return;
+            if (!p) return;
+            magicFingerClearAllFreezeTimers();
+            p.questionMode = g.settings.questionMode === 'separate' ? 'separate' : 'shared';
+            p.sharedWinnerSide = null;
+            p.roundMessage = '';
 
+            if (p.questionMode === 'separate') {
+                magicFingerEnsureSideStates(p);
+                p.sideStates.left = magicFingerFreshSideState(0);
+                p.sideStates.right = magicFingerFreshSideState(0);
+                prepareMagicFingerSideQuestion('left', false);
+                prepareMagicFingerSideQuestion('right', false);
+                return;
+            }
+
+            if (!Array.isArray(p.questions) || !p.questions.length) return;
             if (p.questionIndex >= p.questions.length) {
                 p.questionIndex = 0;
                 if (g.settings.questionOrder === 'random') p.questions = magicFingerShuffle(p.questions);
             }
-
-            const q = p.questions[p.questionIndex];
-            const left = q.options.map(o => ({ ...o }));
-            const right = q.options.map(o => ({ ...o }));
-            p.leftOptions = g.settings.shuffleAnswers ? magicFingerShuffle(left) : left;
-            p.rightOptions = g.settings.shuffleAnswers ? magicFingerShuffle(right) : right;
-            p.roundLocked = false;
-            p.roundState = 'WAIT_ANSWER';
-            p.correctSide = null;
-            p.correctOptionIndex = null;
-            p.leftFreezeUntil = 0;
-            p.rightFreezeUntil = 0;
-            p.roundMessage = '';
-
-            const rt = window.magicFingerRuntime;
-            rt.detected.left = { value: 0, since: 0, armed: true, present: false, removedSince: 0, blockedValue: 0 };
-            rt.detected.right = { value: 0, since: 0, armed: true, present: false, removedSince: 0, blockedValue: 0 };
+            p.sideStates = {
+                left: magicFingerFreshSideState(p.questionIndex),
+                right: magicFingerFreshSideState(p.questionIndex)
+            };
+            const q = magicFingerCurrentQuestion(p, 'left');
+            magicFingerPrepareOptionsForSide(p, 'left', q);
+            magicFingerPrepareOptionsForSide(p, 'right', q);
+            magicFingerResetRuntimeSide('left');
+            magicFingerResetRuntimeSide('right');
         }
 
         window.updateMagicFingerSetting = function(key, value, type = 'string') {
             const g = ensureMagicFingerState();
             if (type === 'number') value = Number(value);
             if (type === 'boolean') value = !!value;
+            if (key === 'wrongFreeze') value = 3;
+            if (key === 'questionMode') value = value === 'separate' ? 'separate' : 'shared';
             g.settings[key] = value;
+            saveData();
+            if (key === 'questionMode') window.initMagicFingerGame();
         };
 
         window.updateMagicFingerQuestion = function(qIndex, field, value, optionIndex = null) {
@@ -4406,28 +4511,42 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const g = ensureMagicFingerState();
             const validQuestions = g.questions.filter(q => q.text?.trim() && q.options?.length === 4 && q.options.some(o => o.isCorrect));
             if (!validQuestions.length) return showToast('Hãy tạo ít nhất 1 câu hỏi hợp lệ!', 'error');
+            if (g.settings.questionMode === 'separate' && validQuestions.length < 2) {
+                return showToast('Chế độ Mỗi đội một câu hỏi cần ít nhất 2 câu hỏi hợp lệ!', 'error');
+            }
             window.startGameBackgroundMusic && window.startGameBackgroundMusic('ngon-tay-than-ky');
 
             const timeLimit = Math.max(10, Number(g.settings.timeLimit) || 90);
             const starsToWin = Math.max(1, Number(g.settings.starsToWin) || 6);
             g.settings.timeLimit = timeLimit;
             g.settings.starsToWin = starsToWin;
+            g.settings.wrongFreeze = 3;
+            const ordered = g.settings.questionOrder === 'random'
+                ? magicFingerShuffle(JSON.parse(JSON.stringify(validQuestions)))
+                : JSON.parse(JSON.stringify(validQuestions));
+            let rightQuestions = JSON.parse(JSON.stringify(ordered));
+            if (g.settings.questionMode === 'separate' && rightQuestions.length > 1) {
+                // Xoay danh sách 1 vị trí để 2 đội khởi đầu bằng hai câu khác nhau, nhưng vẫn dùng cùng ngân hàng câu hỏi.
+                rightQuestions = rightQuestions.slice(1).concat(rightQuestions.slice(0,1));
+            }
+
             g.view = 'play';
             g.play = {
                 status: 'playing',
                 timer: timeLimit,
                 leftScore: 0,
                 rightScore: 0,
+                questionMode: g.settings.questionMode === 'separate' ? 'separate' : 'shared',
                 questionIndex: 0,
-                questions: g.settings.questionOrder === 'random'
-                    ? magicFingerShuffle(JSON.parse(JSON.stringify(validQuestions)))
-                    : JSON.parse(JSON.stringify(validQuestions)),
+                questions: ordered,
+                leftQuestions: JSON.parse(JSON.stringify(ordered)),
+                rightQuestions,
                 leftOptions: [], rightOptions: [],
-                leftFreezeUntil: 0, rightFreezeUntil: 0,
-                roundLocked: false,
-                roundState: 'WAIT_ANSWER',
-                correctSide: null,
-                correctOptionIndex: null,
+                sideStates: {
+                    left: magicFingerFreshSideState(0),
+                    right: magicFingerFreshSideState(0)
+                },
+                sharedWinnerSide: null,
                 roundMessage: ''
             };
             prepareMagicFingerRound();
@@ -4436,6 +4555,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             window.enterInteractiveGameFullscreen();
 
             const rt = window.magicFingerRuntime;
+            magicFingerClearAllFreezeTimers();
             if (rt.timerInterval) clearInterval(rt.timerInterval);
             rt.timerInterval = setInterval(window.updateMagicFingerTimer, 1000);
 
@@ -4462,6 +4582,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const p = g.play;
             if (!p || p.status === 'finished') return;
             p.status = 'finished';
+            magicFingerClearAllFreezeTimers();
             if (window.magicFingerRuntime.timerInterval) {
                 clearInterval(window.magicFingerRuntime.timerInterval);
                 window.magicFingerRuntime.timerInterval = null;
@@ -4472,36 +4593,60 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             window.initMagicFingerGame();
         };
 
-        window.submitMagicFingerAnswer = function(side, optionIndex, source = 'click') {
+        window.thawMagicFingerSide = function(side) {
             const g = ensureMagicFingerState();
             const p = g.play;
             if (!p || p.status !== 'playing') return;
-            if ((p.roundState || 'WAIT_ANSWER') !== 'WAIT_ANSWER' || p.roundLocked) return;
-
+            const s = magicFingerGetSideState(p, side);
+            if (s.state !== 'FROZEN') return;
             const now = Date.now();
-            const freezeKey = side === 'left' ? 'leftFreezeUntil' : 'rightFreezeUntil';
-            const rtSide = window.magicFingerRuntime.detected[side];
-            // Sau câu sai chỉ chặn việc giữ NGUYÊN đúng ngón tay sai cũ trong thời gian phạt.
-            // Nếu học sinh đổi sang ngón/đáp án khác thì được thử lại ngay trên cùng câu.
-            if ((p[freezeKey] || 0) > now && rtSide?.blockedValue === Number(optionIndex) + 1) return;
+            if (s.freezeUntil > now) return;
+            s.state = 'WAIT_ANSWER';
+            s.freezeUntil = 0;
+            s.message = '';
+            magicFingerClearFreezeTimer(side);
+            magicFingerResetRuntimeSide(side);
+            saveData();
+            window.initMagicFingerGame();
+            window.attachMagicFingerRuntimeToDOM();
+        };
+
+        function magicFingerScheduleThaw(side) {
+            const p = ensureMagicFingerState().play;
+            if (!p) return;
+            const s = magicFingerGetSideState(p, side);
+            magicFingerClearFreezeTimer(side);
+            const wait = Math.max(0, Number(s.freezeUntil || 0) - Date.now()) + 15;
+            window.magicFingerRuntime.freezeTimers[side] = setTimeout(() => window.thawMagicFingerSide(side), wait);
+        }
+
+        window.submitMagicFingerAnswer = function(side, optionIndex, source = 'click') {
+            const g = ensureMagicFingerState();
+            const p = g.play;
+            if (!p || p.status !== 'playing' || !['left','right'].includes(side)) return;
+            const s = magicFingerGetSideState(p, side);
+            if (s.state !== 'WAIT_ANSWER') return;
+            if (p.questionMode === 'shared' && p.sharedWinnerSide) return;
 
             const opts = side === 'left' ? p.leftOptions : p.rightOptions;
-            const option = opts?.[optionIndex];
+            const option = opts?.[Number(optionIndex)];
             if (!option) return;
+            const now = Date.now();
+            const rtSide = window.magicFingerRuntime.detected[side];
 
             if (option.isCorrect) {
-                // WAIT_ANSWER -> LOCK_CORRECT_ANSWER: khóa tuyệt đối ngay khi đúng.
-                p.roundLocked = true;
-                p.roundState = 'LOCK_CORRECT_ANSWER';
-                p.correctSide = side;
-                p.correctOptionIndex = Number(optionIndex);
+                s.state = 'CORRECT_LOCKED';
+                s.correctOptionIndex = Number(optionIndex);
+                s.freezeUntil = 0;
+                s.message = 'Đã đúng · hạ tay xuống để sang câu tiếp theo';
+                if (p.questionMode === 'shared') p.sharedWinnerSide = side;
                 if (side === 'left') p.leftScore += 1; else p.rightScore += 1;
-                p.roundMessage = `${side === 'left' ? g.settings.team1Name : g.settings.team2Name} trả lời đúng! Hãy hạ tay xuống để sang câu tiếp theo.`;
                 if (rtSide) {
                     rtSide.armed = false;
                     rtSide.removedSince = 0;
                     rtSide.blockedValue = 0;
                 }
+                magicFingerClearFreezeTimer(side);
                 magicFingerSound('correct');
                 window.flashMagicFingerSide(side, true);
                 saveData();
@@ -4509,51 +4654,57 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 const label = document.getElementById(`mfg-detect-${side}`);
                 if (label) label.textContent = '✅ Đã đúng · hãy hạ tay xuống';
 
-                // LOCK_CORRECT_ANSWER -> WAIT_HAND_REMOVED. Không đổi câu ở đây.
                 setTimeout(() => {
-                    const g2 = ensureMagicFingerState();
-                    const p2 = g2.play;
-                    if (!p2 || p2.status !== 'playing' || p2.roundState !== 'LOCK_CORRECT_ANSWER') return;
-                    p2.roundState = 'WAIT_HAND_REMOVED';
+                    const p2 = ensureMagicFingerState().play;
+                    if (!p2 || p2.status !== 'playing') return;
+                    const s2 = magicFingerGetSideState(p2, side);
+                    if (s2.state !== 'CORRECT_LOCKED') return;
+                    s2.state = 'WAIT_HAND_REMOVED';
                     saveData();
                     const l = document.getElementById(`mfg-detect-${side}`);
                     if (l) l.textContent = '✋ Đã khóa đáp án đúng · hạ tay để sang câu';
 
-                    // Nếu đang chơi bằng click hoặc camera đang tắt thì coi như tay đã rời vùng nhận diện.
-                    const mustWaitForCameraHand = source === 'camera' && g2.settings.cameraEnabled && !!window.magicFingerRuntime.stream;
+                    const mustWaitForCameraHand = source === 'camera' && ensureMagicFingerState().settings.cameraEnabled && !!window.magicFingerRuntime.stream;
                     if (!mustWaitForCameraHand) {
                         const rt2 = window.magicFingerRuntime.detected[side];
                         if (rt2) rt2.removedSince = Date.now();
                         setTimeout(() => window.advanceMagicFingerAfterHandRemoved(side), MAGIC_FINGER_HAND_REMOVED_MS + 20);
                     }
                 }, 90);
-            } else {
-                // Sai: giữ nguyên WAIT_ANSWER và nguyên câu hỏi. Cho phép đổi ngón để thử lại.
-                p.roundState = 'WAIT_ANSWER';
-                p.roundLocked = false;
-                p[freezeKey] = now + Math.max(0, Number(g.settings.wrongFreeze) || 0) * 1000;
-                p.roundMessage = 'Chưa đúng, đổi ngón tay/đáp án khác và thử lại nhé!';
-                magicFingerSound('wrong');
-                window.flashMagicFingerSide(side, false);
-                if (rtSide) {
-                    rtSide.armed = false;               // không ăn lặp lại cùng một ngón đang giữ
-                    rtSide.blockedValue = Number(optionIndex) + 1;
-                    rtSide.since = now;
-                }
-                const label = document.getElementById(`mfg-detect-${side}`);
-                if (label) label.textContent = '❌ Chưa đúng · đổi ngón để thử lại';
-                saveData();
+                return;
             }
+
+            // Sai -> chỉ đóng băng ĐÚNG đội vừa sai 3 giây; đội còn lại tiếp tục bình thường.
+            s.state = 'FROZEN';
+            s.freezeUntil = now + MAGIC_FINGER_FREEZE_MS;
+            s.correctOptionIndex = null;
+            s.message = '❄ ĐÓNG BĂNG: 3';
+            if (rtSide) {
+                rtSide.armed = false;
+                rtSide.blockedValue = Number(optionIndex) + 1;
+                rtSide.since = now;
+                rtSide.removedSince = 0;
+            }
+            p.roundMessage = `${side === 'left' ? g.settings.team1Name : g.settings.team2Name} trả lời sai và bị đóng băng 3 giây.`;
+            magicFingerSound('wrong');
+            window.flashMagicFingerSide(side, false);
+            magicFingerScheduleThaw(side);
+            saveData();
+            window.initMagicFingerGame();
+            window.attachMagicFingerRuntimeToDOM();
+            window.updateMagicFingerFreezeLabels();
         };
 
         window.advanceMagicFingerAfterHandRemoved = function(side) {
             const g = ensureMagicFingerState();
             const p = g.play;
-            if (!p || p.status !== 'playing' || p.roundState !== 'WAIT_HAND_REMOVED') return;
-            if (p.correctSide && side && p.correctSide !== side) return;
+            if (!p || p.status !== 'playing' || !['left','right'].includes(side)) return;
+            const s = magicFingerGetSideState(p, side);
+            if (s.state !== 'WAIT_HAND_REMOVED') return;
+            if (p.questionMode === 'shared' && p.sharedWinnerSide !== side) return;
 
-            // Khóa trạng thái trước khi chuyển để một frame camera không gọi lặp nhiều lần.
-            p.roundState = 'ADVANCING';
+            // Khóa riêng đội này trước khi chuyển để frame camera không gọi lặp.
+            s.state = 'ADVANCING';
             const reachedTarget = p.leftScore >= Number(g.settings.starsToWin) || p.rightScore >= Number(g.settings.starsToWin);
             if (reachedTarget) {
                 saveData();
@@ -4561,8 +4712,14 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 return;
             }
 
-            p.questionIndex += 1;
-            prepareMagicFingerRound();
+            if (p.questionMode === 'separate') {
+                // Chỉ đội trả lời đúng sang câu mới. Đội còn lại giữ nguyên câu + state hiện tại.
+                prepareMagicFingerSideQuestion(side, true);
+            } else {
+                // Bộ câu hỏi chung: khi bên đúng đã hạ tay, cả hai cùng sang lượt câu chung tiếp theo.
+                p.questionIndex += 1;
+                prepareMagicFingerRound();
+            }
             saveData();
             window.initMagicFingerGame();
             window.attachMagicFingerRuntimeToDOM();
@@ -4585,23 +4742,33 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if (!p) return;
             const now = Date.now();
 
-            if (p.roundState === 'WAIT_HAND_REMOVED' || p.roundState === 'LOCK_CORRECT_ANSWER') {
-                ['left', 'right'].forEach(side => {
-                    const el = document.getElementById(`mfg-detect-${side}`);
-                    if (!el) return;
-                    if (side === p.correctSide) el.textContent = '✋ Đã đúng · hạ tay xuống để sang câu';
-                    else el.textContent = '⏸ Đang chờ người trả lời đúng hạ tay';
-                });
-                return;
-            }
-
-            ['left', 'right'].forEach(side => {
-                const until = p[side === 'left' ? 'leftFreezeUntil' : 'rightFreezeUntil'] || 0;
-                const rt = window.magicFingerRuntime.detected[side];
+            ['left','right'].forEach(side => {
+                const s = magicFingerGetSideState(p, side);
                 const el = document.getElementById(`mfg-detect-${side}`);
-                // Chỉ báo phạt nếu học sinh vẫn giữ chính ngón tay sai vừa chọn.
-                if (el && until > now && rt?.blockedValue && rt.value === rt.blockedValue) {
-                    el.textContent = `❌ Đổi ngón để thử lại · ${Math.ceil((until - now) / 1000)}s`;
+                const frozenEl = document.getElementById(`mfg-freeze-${side}`);
+
+                if (s.state === 'FROZEN') {
+                    const remainMs = Math.max(0, s.freezeUntil - now);
+                    const remain = Math.max(1, Math.ceil(remainMs / 1000));
+                    if (el) el.textContent = `❄ ĐÓNG BĂNG: ${remain}`;
+                    if (frozenEl) frozenEl.textContent = String(remain);
+                    if (remainMs <= 0) window.thawMagicFingerSide(side);
+                    return;
+                }
+                if (s.state === 'CORRECT_LOCKED') {
+                    if (el) el.textContent = '✅ Đã khóa đáp án đúng';
+                    return;
+                }
+                if (s.state === 'WAIT_HAND_REMOVED') {
+                    if (el) el.textContent = '✋ Đã đúng · hạ tay xuống để sang câu';
+                    return;
+                }
+                if (s.state === 'ADVANCING') {
+                    if (el) el.textContent = '⏭ Đang chuyển câu...';
+                    return;
+                }
+                if (p.questionMode === 'shared' && p.sharedWinnerSide && p.sharedWinnerSide !== side) {
+                    if (el) el.textContent = '⏸ Đợi đội trả lời đúng hạ tay';
                 }
             });
         };
@@ -4628,7 +4795,6 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             landmarksArray.forEach(landmarks => {
                 const wrist = landmarks?.[0];
                 if (!wrist) return;
-                // Giao diện camera được lật gương => đổi trục X để khớp trái/phải trên màn hình.
                 const mirroredX = 1 - wrist.x;
                 const side = mirroredX < 0.5 ? 'left' : 'right';
                 sidePresent[side] = true;
@@ -4636,34 +4802,49 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             });
 
             const now = Date.now();
-            const roundState = p.roundState || 'WAIT_ANSWER';
+            ['left','right'].forEach(side => {
+                const s = magicFingerGetSideState(p, side);
+                const value = sideValues[side];
+                const present = sidePresent[side];
+                const rt = window.magicFingerRuntime.detected[side];
+                const el = document.getElementById(`mfg-detect-${side}`);
+                rt.present = present;
 
-            // Sau khi đã đúng: bỏ qua hoàn toàn mọi ngón tay/đáp án khác.
-            // Chỉ theo dõi việc BÀN TAY CỦA BÊN TRẢ LỜI ĐÚNG rời vùng nhận diện đủ 400ms.
-            if (roundState === 'LOCK_CORRECT_ANSWER' || roundState === 'WAIT_HAND_REMOVED' || roundState === 'ADVANCING') {
-                ['left', 'right'].forEach(side => {
-                    const rt = window.magicFingerRuntime.detected[side];
-                    const el = document.getElementById(`mfg-detect-${side}`);
-                    rt.present = !!sidePresent[side];
+                // Bộ câu chung: sau khi một đội đã đúng, bên còn lại tạm ngừng nhận input
+                // cho đến khi bên đúng hạ tay. Sai của một bên KHÔNG bao giờ khóa bên kia.
+                if (p.questionMode === 'shared' && p.sharedWinnerSide && p.sharedWinnerSide !== side) {
+                    rt.armed = false;
+                    rt.removedSince = 0;
+                    if (el) el.textContent = '⏸ Đợi đội trả lời đúng hạ tay';
+                    return;
+                }
 
-                    if (side !== p.correctSide) {
-                        if (el) el.textContent = '⏸ Đang chờ người trả lời đúng hạ tay';
-                        return;
-                    }
+                if (s.state === 'FROZEN') {
+                    // Đóng băng riêng đội này: bỏ qua TOÀN BỘ cử chỉ trong đủ 3 giây.
+                    rt.armed = false;
+                    rt.removedSince = 0;
+                    const remainMs = Math.max(0, s.freezeUntil - now);
+                    const remain = Math.max(1, Math.ceil(remainMs / 1000));
+                    const frozenEl = document.getElementById(`mfg-freeze-${side}`);
+                    if (el) el.textContent = `❄ ĐÓNG BĂNG: ${remain}`;
+                    if (frozenEl) frozenEl.textContent = String(remain);
+                    if (remainMs <= 0) window.thawMagicFingerSide(side);
+                    return;
+                }
 
-                    if (roundState !== 'WAIT_HAND_REMOVED') {
+                // Đúng: bỏ qua mọi đáp án khác, chỉ theo dõi hạ tay của chính đội này.
+                if (s.state === 'CORRECT_LOCKED' || s.state === 'WAIT_HAND_REMOVED' || s.state === 'ADVANCING') {
+                    rt.armed = false;
+                    if (s.state !== 'WAIT_HAND_REMOVED') {
                         rt.removedSince = 0;
-                        if (el) el.textContent = '✅ Đã khóa đáp án đúng';
+                        if (el) el.textContent = s.state === 'ADVANCING' ? '⏭ Đang chuyển câu...' : '✅ Đã khóa đáp án đúng';
                         return;
                     }
-
-                    if (sidePresent[side]) {
-                        // Tay vẫn còn trước camera -> tuyệt đối không chuyển câu.
+                    if (present) {
                         rt.removedSince = 0;
                         if (el) el.textContent = '✋ Đã đúng · hãy hạ tay xuống';
                         return;
                     }
-
                     if (!rt.removedSince) rt.removedSince = now;
                     const elapsed = now - rt.removedSince;
                     const remain = Math.max(0, MAGIC_FINGER_HAND_REMOVED_MS - elapsed);
@@ -4672,29 +4853,19 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                         rt.removedSince = 0;
                         window.advanceMagicFingerAfterHandRemoved(side);
                     }
-                });
-                return;
-            }
+                    return;
+                }
 
-            // WAIT_ANSWER: nhận câu trả lời. Sai vẫn ở nguyên câu và có thể đổi thẳng sang ngón khác.
-            ['left', 'right'].forEach(side => {
-                const value = sideValues[side];
-                const present = sidePresent[side];
-                const rt = window.magicFingerRuntime.detected[side];
-                const el = document.getElementById(`mfg-detect-${side}`);
-                const freezeUntil = p[side === 'left' ? 'leftFreezeUntil' : 'rightFreezeUntil'] || 0;
-                rt.present = present;
+                // WAIT_ANSWER của từng đội hoạt động độc lập.
                 rt.removedSince = 0;
-
                 if (!present) {
                     rt.value = 0;
                     rt.since = now;
                     rt.armed = true;
-                    if (freezeUntil <= now) rt.blockedValue = 0;
+                    rt.blockedValue = 0;
                     if (el) el.textContent = '✋ Giơ 1–4 ngón tay';
                     return;
                 }
-
                 if (value === 0) {
                     rt.value = 0;
                     rt.since = now;
@@ -4702,22 +4873,11 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                     if (el) el.textContent = '✋ Giơ 1–4 ngón tay';
                     return;
                 }
-
-                // Đổi số ngón = một lựa chọn mới. Đây là chìa khóa để sai rồi đổi ngón thử lại
-                // mà KHÔNG cần hạ tay và KHÔNG đổi câu.
                 if (rt.value !== value) {
                     rt.value = value;
                     rt.since = now;
                     rt.armed = true;
                 }
-
-                // Nếu vẫn giữ đúng ngón sai cũ trong thời gian phạt thì không ăn lặp phím/đáp án.
-                if (freezeUntil > now && rt.blockedValue === value) {
-                    if (el) el.textContent = `❌ Sai · đổi ngón khác để thử lại`;
-                    return;
-                }
-                if (freezeUntil <= now && rt.blockedValue === value) rt.blockedValue = 0;
-
                 if (el) el.textContent = `Đang nhận: ${value} ngón`;
                 const holdMs = Math.max(250, Number(g.settings.holdMs) || 650);
                 if (value >= 1 && value <= 4 && rt.armed && now - rt.since >= holdMs) {
@@ -4876,6 +5036,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
 
         window.cleanupMagicFingerGame = function(stopTimer = true) {
             window.stopGameBackgroundMusic && window.stopGameBackgroundMusic(true);
+            magicFingerClearAllFreezeTimers();
             window.stopMagicFingerCamera(true);
             if (stopTimer && window.magicFingerRuntime.timerInterval) {
                 clearInterval(window.magicFingerRuntime.timerInterval);
@@ -4944,13 +5105,20 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                                 <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                                     <div class="font-black text-slate-800 mb-4 flex items-center gap-2"><i class="ph-fill ph-sliders-horizontal text-amber-500"></i> Cấu hình trò chơi</div>
+                                    <div class="mb-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                                        <div class="text-xs font-black text-amber-700 uppercase tracking-wider mb-2">Kiểu câu hỏi cho 2 đội</div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <button type="button" onclick="updateMagicFingerSetting('questionMode','shared')" class="px-4 py-3 rounded-xl border-2 text-left transition-colors ${g.settings.questionMode==='shared'?'border-amber-500 bg-white text-amber-800 shadow-sm':'border-slate-200 bg-white/70 text-slate-600 hover:border-amber-300'}"><div class="font-black">👥 Bộ câu hỏi chung</div><div class="text-[11px] mt-1 opacity-75">Cả 2 đội nhận cùng một câu hỏi ở mỗi lượt.</div></button>
+                                            <button type="button" onclick="updateMagicFingerSetting('questionMode','separate')" class="px-4 py-3 rounded-xl border-2 text-left transition-colors ${g.settings.questionMode==='separate'?'border-violet-500 bg-white text-violet-800 shadow-sm':'border-slate-200 bg-white/70 text-slate-600 hover:border-violet-300'}"><div class="font-black">⚡ Mỗi đội một câu hỏi</div><div class="text-[11px] mt-1 opacity-75">Hai đội có câu hỏi, tiến trình và trạng thái độc lập.</div></button>
+                                        </div>
+                                    </div>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Tên trò chơi</span><input value="${mfgEsc(g.settings.title)}" oninput="updateMagicFingerSetting('title', this.value)" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-amber-400"></label>
                                         <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Thời gian (giây)</span><input type="number" min="10" value="${g.settings.timeLimit}" oninput="updateMagicFingerSetting('timeLimit', this.value, 'number')" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-amber-400"></label>
                                         <label class="space-y-1"><span class="text-xs font-bold text-blue-600">Tên bên trái</span><input value="${mfgEsc(g.settings.team1Name)}" oninput="updateMagicFingerSetting('team1Name', this.value)" class="w-full px-4 py-2.5 rounded-xl border border-blue-200 font-bold outline-none focus:border-blue-400"></label>
                                         <label class="space-y-1"><span class="text-xs font-bold text-red-600">Tên bên phải</span><input value="${mfgEsc(g.settings.team2Name)}" oninput="updateMagicFingerSetting('team2Name', this.value)" class="w-full px-4 py-2.5 rounded-xl border border-red-200 font-bold outline-none focus:border-red-400"></label>
                                         <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Số sao để thắng</span><input type="number" min="1" max="20" value="${g.settings.starsToWin}" oninput="updateMagicFingerSetting('starsToWin', this.value, 'number')" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-amber-400"></label>
-                                        <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Phạt khi sai (giây)</span><input type="number" min="0" max="10" value="${g.settings.wrongFreeze}" oninput="updateMagicFingerSetting('wrongFreeze', this.value, 'number')" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-amber-400"></label>
+                                        <label class="space-y-1"><span class="text-xs font-bold text-cyan-700">Đóng băng khi sai</span><div class="w-full px-4 py-2.5 rounded-xl border border-cyan-200 bg-cyan-50 font-black text-cyan-800">❄ 3 giây (cố định)</div></label>
                                         <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Giữ tay để xác nhận (ms)</span><input type="number" min="250" max="2000" step="50" value="${g.settings.holdMs}" oninput="updateMagicFingerSetting('holdMs', this.value, 'number')" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-amber-400"></label>
                                         <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Thứ tự câu hỏi</span><select onchange="updateMagicFingerSetting('questionOrder', this.value)" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none"><option value="random" ${g.settings.questionOrder==='random'?'selected':''}>Ngẫu nhiên</option><option value="sequential" ${g.settings.questionOrder==='sequential'?'selected':''}>Theo thứ tự</option></select></label>
                                     </div>
@@ -4994,15 +5162,29 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             }
 
             const p = g.play;
-            const q = p.questions[p.questionIndex] || p.questions[0];
+            const separateQuestions = (p.questionMode || g.settings.questionMode) === 'separate';
+            const leftQuestion = magicFingerCurrentQuestion(p, 'left');
+            const rightQuestion = magicFingerCurrentQuestion(p, 'right');
+            const q = separateQuestions ? null : leftQuestion;
             const timerMin = Math.floor(p.timer / 60);
             const timerSec = p.timer % 60;
             const starsLeft = Math.max(0, g.settings.starsToWin - Math.max(p.leftScore, p.rightScore));
-            const renderOptions = (side, opts, palette) => opts.map((o, i) => `
-                <button onclick="submitMagicFingerAnswer('${side}', ${i})" class="group relative rounded-xl border-2 ${palette.border} ${palette.bg} hover:brightness-110 transition-all min-h-[92px] flex items-center justify-center p-3 overflow-hidden shadow-sm">
+            const renderOptions = (side, opts, palette) => {
+                const s = magicFingerGetSideState(p, side);
+                const blockedBySharedWinner = !separateQuestions && !!p.sharedWinnerSide;
+                const disabled = s.state !== 'WAIT_ANSWER' || blockedBySharedWinner;
+                return opts.map((o, i) => `
+                <button onclick="submitMagicFingerAnswer('${side}', ${i})" ${disabled?'disabled':''} class="group relative rounded-xl border-2 ${palette.border} ${palette.bg} hover:brightness-110 transition-all min-h-[92px] flex items-center justify-center p-3 overflow-hidden shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
                     <span class="absolute top-2 left-2 text-[10px] font-black ${palette.badgeText} ${palette.badgeBg} px-2 py-1 rounded-full">${i+1} ngón</span>
                     <span class="text-xl md:text-2xl font-black text-white text-center leading-tight drop-shadow-sm mt-3">${mfgEsc(o.text)}</span>
                 </button>`).join('');
+            };
+            const freezeOverlay = (side) => {
+                const s = magicFingerGetSideState(p, side);
+                if (s.state !== 'FROZEN') return '';
+                const remain = Math.max(1, Math.ceil((s.freezeUntil - Date.now()) / 1000));
+                return `<div class="absolute inset-0 z-40 pointer-events-none bg-cyan-200/30 backdrop-blur-[2px] flex items-center justify-center"><div class="rounded-3xl border-4 border-cyan-100/80 bg-cyan-950/70 px-7 py-6 text-center text-white shadow-2xl"><div class="text-5xl mb-2">❄️</div><div class="text-sm font-black tracking-widest text-cyan-100">ĐÓNG BĂNG</div><div class="mt-1 text-5xl font-black"><span id="mfg-freeze-${side}">${remain}</span></div><div class="text-xs font-bold text-cyan-100 mt-1">giây</div></div></div>`;
+            };
 
             let resultOverlay = '';
             if (p.status === 'finished') {
@@ -5035,7 +5217,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                             <span class="ml-auto bg-white/100 border-2 border-white rounded-full min-w-10 h-8 px-3 flex items-center justify-center font-black">${p.leftScore}</span>
                         </div>
                         <div class="text-center w-[38%] min-w-0">
-                            <div class="text-xs md:text-sm font-black truncate">${mfgEsc(g.settings.title)} - Bản Chạy Thử</div>
+                            <div class="text-xs md:text-sm font-black truncate">${mfgEsc(g.settings.title)} · ${separateQuestions?'Câu riêng':'Câu chung'}</div>
                             <div id="mfg-timer" class="inline-flex mt-0.5 bg-white/90 px-3 py-0.5 rounded-full text-xs font-black shadow">⏱ ${timerMin}:${String(timerSec).padStart(2,'0')}</div>
                         </div>
                         <div class="flex items-center gap-2 min-w-0 w-[31%] justify-end">
@@ -5048,16 +5230,20 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                     </div>
 
                     <div class="relative z-10 bg-[#fff9df] text-slate-900 border-b-4 border-orange-400 px-4 py-3 text-center shadow-md">
-                        <div class="text-xl md:text-3xl font-black leading-tight">${mfgEsc(q?.text || 'Câu hỏi')}</div>
+                        ${separateQuestions
+                            ? `<div class="text-sm md:text-lg font-black text-violet-700">⚡ MỖI ĐỘI MỘT CÂU HỎI · HAI TIẾN TRÌNH ĐỘC LẬP</div>`
+                            : `<div class="text-xl md:text-3xl font-black leading-tight">${mfgEsc(q?.text || 'Câu hỏi')}</div>`}
                     </div>
 
                     <div class="relative z-10 flex-1 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_190px_minmax(0,1fr)] gap-3 p-3 min-h-0">
-                        <div id="mfg-side-left" class="rounded-2xl border-4 border-blue-400 bg-blue-700/70 shadow-[0_0_0_2px_rgba(255,255,255,.3)] overflow-hidden flex flex-col min-h-[500px] transition-all">
-                            <div class="relative h-[43%] min-h-[210px] bg-black overflow-hidden border-b-4 border-blue-300">
+                        <div id="mfg-side-left" class="relative rounded-2xl border-4 border-blue-400 bg-blue-700/70 shadow-[0_0_0_2px_rgba(255,255,255,.3)] overflow-hidden flex flex-col min-h-[500px] transition-all">
+                            ${freezeOverlay('left')}
+                            <div class="relative ${separateQuestions?'h-[34%]':'h-[43%]'} min-h-[190px] bg-black overflow-hidden border-b-4 border-blue-300">
                                 <canvas id="mfg-canvas-left" class="w-full h-full block bg-black"></canvas>
                                 <div id="mfg-detect-left" class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/65 backdrop-blur px-4 py-2 rounded-full text-xs font-black whitespace-nowrap border border-white/20">${g.settings.cameraEnabled ? 'Đang mở camera...' : 'Bấm đáp án để chơi'}</div>
                                 <div class="absolute top-3 left-3 bg-blue-500/90 px-3 py-1.5 rounded-full text-xs font-black shadow">BÊN TRÁI</div>
                             </div>
+                            ${separateQuestions ? `<div class="bg-blue-50 text-slate-900 border-b-2 border-blue-200 px-3 py-2 text-center min-h-[78px] flex items-center justify-center"><div class="text-base md:text-xl font-black leading-tight">${mfgEsc(leftQuestion?.text || 'Câu hỏi bên trái')}</div></div>` : ''}
                             <div class="grid grid-cols-2 gap-2 p-2 flex-1 bg-blue-600/85">${renderOptions('left', p.leftOptions, {border:'border-blue-300',bg:'bg-blue-600',badgeText:'text-blue-900',badgeBg:'bg-blue-100'})}</div>
                         </div>
 
@@ -5068,12 +5254,14 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                             <div class="mt-5 text-[11px] text-white/70 font-bold leading-relaxed">Giơ 1–4 ngón<br>và giữ ổn định</div>
                         </div>
 
-                        <div id="mfg-side-right" class="rounded-2xl border-4 border-red-400 bg-red-700/70 shadow-[0_0_0_2px_rgba(255,255,255,.3)] overflow-hidden flex flex-col min-h-[500px] transition-all">
-                            <div class="relative h-[43%] min-h-[210px] bg-black overflow-hidden border-b-4 border-red-300">
+                        <div id="mfg-side-right" class="relative rounded-2xl border-4 border-red-400 bg-red-700/70 shadow-[0_0_0_2px_rgba(255,255,255,.3)] overflow-hidden flex flex-col min-h-[500px] transition-all">
+                            ${freezeOverlay('right')}
+                            <div class="relative ${separateQuestions?'h-[34%]':'h-[43%]'} min-h-[190px] bg-black overflow-hidden border-b-4 border-red-300">
                                 <canvas id="mfg-canvas-right" class="w-full h-full block bg-black"></canvas>
                                 <div id="mfg-detect-right" class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/65 backdrop-blur px-4 py-2 rounded-full text-xs font-black whitespace-nowrap border border-white/20">${g.settings.cameraEnabled ? 'Đang mở camera...' : 'Bấm đáp án để chơi'}</div>
                                 <div class="absolute top-3 right-3 bg-red-500/90 px-3 py-1.5 rounded-full text-xs font-black shadow">BÊN PHẢI</div>
                             </div>
+                            ${separateQuestions ? `<div class="bg-red-50 text-slate-900 border-b-2 border-red-200 px-3 py-2 text-center min-h-[78px] flex items-center justify-center"><div class="text-base md:text-xl font-black leading-tight">${mfgEsc(rightQuestion?.text || 'Câu hỏi bên phải')}</div></div>` : ''}
                             <div class="grid grid-cols-2 gap-2 p-2 flex-1 bg-red-600/85">${renderOptions('right', p.rightOptions, {border:'border-red-300',bg:'bg-red-600',badgeText:'text-red-900',badgeBg:'bg-red-100'})}</div>
                         </div>
                     </div>
