@@ -3812,8 +3812,6 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             g.settings.questionCount = Math.max(10, Math.min(15, Number(g.settings.questionCount)||10));
             if (!Array.isArray(g.questions)) g.questions = [];
             if (!Array.isArray(g.questionLibrary)) g.questionLibrary = [];
-            const existingHold = Number(g.settings.holdMs);
-            if (!Number.isFinite(existingHold) || existingHold < 200 || existingHold > 400) g.settings.holdMs = 300;
             return g;
         }
 
@@ -4209,14 +4207,11 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             lastVideoTime: -1,
             running: false,
             cameraStarting: false,
-            handAbsentSince: 0,
             detected: {
-                left:  { optionIndex: -1, since: 0, armed: true },
-                right: { optionIndex: -1, since: 0, armed: true }
+                left:  { value: 0, since: 0, armed: true },
+                right: { value: 0, since: 0, armed: true }
             }
         };
-        const MAGIC_FINGER_HAND_REMOVED_MS = 400;
-        const MAGIC_FINGER_DETECT_INTERVAL_MS = 45;
 
         function mfgEsc(value) {
             return String(value ?? '')
@@ -4285,7 +4280,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if (!g.settings) g.settings = {};
             const defaults = {
                 title: 'Cuộc Đua Ngôi Sao', timeLimit: 90, starsToWin: 6,
-                wrongFreeze: 2, holdMs: 300,
+                wrongFreeze: 2, holdMs: 650,
                 team1Name: 'Người chơi bên trái', team2Name: 'Người chơi bên phải',
                 questionOrder: 'random', shuffleAnswers: true,
                 cameraEnabled: true, soundEnabled: true
@@ -4326,16 +4321,10 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             p.leftFreezeUntil = 0;
             p.rightFreezeUntil = 0;
             p.roundMessage = '';
-            p.interactionState = 'READY';
-            p.selectedSide = null;
-            p.selectedOptionIndex = null;
-            p.selectedWasCorrect = null;
-            p.pendingFinish = false;
 
             const rt = window.magicFingerRuntime;
-            rt.handAbsentSince = 0;
-            rt.detected.left = { optionIndex: -1, since: 0, armed: true };
-            rt.detected.right = { optionIndex: -1, since: 0, armed: true };
+            rt.detected.left = { value: 0, since: 0, armed: true };
+            rt.detected.right = { value: 0, since: 0, armed: true };
         }
 
         window.updateMagicFingerSetting = function(key, value, type = 'string') {
@@ -4415,8 +4404,6 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const starsToWin = Math.max(1, Number(g.settings.starsToWin) || 6);
             g.settings.timeLimit = timeLimit;
             g.settings.starsToWin = starsToWin;
-            // Gameplay bắt buộc dùng camera: Bắt đầu là mở camera trước ngay, không cần nút phụ.
-            g.settings.cameraEnabled = true;
             g.view = 'play';
             g.play = {
                 status: 'playing',
@@ -4430,12 +4417,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 leftOptions: [], rightOptions: [],
                 leftFreezeUntil: 0, rightFreezeUntil: 0,
                 roundLocked: false,
-                roundMessage: '',
-                interactionState: 'READY',
-                selectedSide: null,
-                selectedOptionIndex: null,
-                selectedWasCorrect: null,
-                pendingFinish: false
+                roundMessage: ''
             };
             prepareMagicFingerRound();
             saveData();
@@ -4443,12 +4425,10 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             window.enterInteractiveGameFullscreen();
 
             const rt = window.magicFingerRuntime;
-            rt.handAbsentSince = 0;
             if (rt.timerInterval) clearInterval(rt.timerInterval);
             rt.timerInterval = setInterval(window.updateMagicFingerTimer, 1000);
 
-            // Gọi ngay trong cùng thao tác Bắt đầu để trình duyệt xin/mở camera tức thì.
-            void window.startMagicFingerCamera();
+            if (g.settings.cameraEnabled) setTimeout(() => window.startMagicFingerCamera(), 150);
         };
 
         window.updateMagicFingerTimer = function() {
@@ -4484,60 +4464,43 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         window.submitMagicFingerAnswer = function(side, optionIndex, source = 'click') {
             const g = ensureMagicFingerState();
             const p = g.play;
-            if (!p || p.status !== 'playing') return;
-            if (p.roundLocked || p.interactionState !== 'READY') return;
-            if (side !== 'left' && side !== 'right') return;
+            if (!p || p.status !== 'playing' || p.roundLocked) return;
+            const now = Date.now();
+            const freezeKey = side === 'left' ? 'leftFreezeUntil' : 'rightFreezeUntil';
+            if ((p[freezeKey] || 0) > now) return;
 
             const opts = side === 'left' ? p.leftOptions : p.rightOptions;
-            const option = opts?.[Number(optionIndex)];
+            const option = opts?.[optionIndex];
             if (!option) return;
 
-            // Khóa lựa chọn NGAY ở frame xác nhận đầu tiên. Từ đây mọi frame/cử chỉ khác bị bỏ qua.
-            p.roundLocked = true;
-            p.interactionState = 'WAIT_HAND_REMOVED';
-            p.selectedSide = side;
-            p.selectedOptionIndex = Number(optionIndex);
-            p.selectedWasCorrect = !!option.isCorrect;
-            p.roundMessage = option.isCorrect
-                ? `${side === 'left' ? g.settings.team1Name : g.settings.team2Name} trả lời đúng! Hãy hạ tay để sang câu tiếp theo.`
-                : 'Chưa đúng. Hãy hạ tay để sang câu tiếp theo.';
-
             if (option.isCorrect) {
+                p.roundLocked = true;
                 if (side === 'left') p.leftScore += 1; else p.rightScore += 1;
+                p.roundMessage = `${side === 'left' ? g.settings.team1Name : g.settings.team2Name} trả lời đúng!`;
                 magicFingerSound('correct');
                 window.flashMagicFingerSide(side, true);
+
+                if (p.leftScore >= g.settings.starsToWin || p.rightScore >= g.settings.starsToWin) {
+                    setTimeout(() => window.finishMagicFingerGame('score'), 450);
+                    return;
+                }
+
+                setTimeout(() => {
+                    if (!g.play || g.play.status !== 'playing') return;
+                    g.play.questionIndex += 1;
+                    prepareMagicFingerRound();
+                    window.initMagicFingerGame();
+                    window.attachMagicFingerRuntimeToDOM();
+                }, 600);
             } else {
+                p[freezeKey] = now + Math.max(0, Number(g.settings.wrongFreeze) || 2) * 1000;
+                p.roundMessage = 'Chưa đúng, thử lại nhé!';
                 magicFingerSound('wrong');
                 window.flashMagicFingerSide(side, false);
+                window.updateMagicFingerFreezeLabels();
+                const rtSide = window.magicFingerRuntime.detected[side];
+                if (rtSide) rtSide.armed = false;
             }
-
-            p.pendingFinish = p.leftScore >= Number(g.settings.starsToWin) || p.rightScore >= Number(g.settings.starsToWin);
-            const rt = window.magicFingerRuntime;
-            rt.handAbsentSince = 0;
-            rt.detected.left = { optionIndex: -1, since: 0, armed: false };
-            rt.detected.right = { optionIndex: -1, since: 0, armed: false };
-            saveData();
-            window.initMagicFingerGame();
-            window.attachMagicFingerRuntimeToDOM();
-        };
-
-        window.advanceMagicFingerAfterHandRemoved = function() {
-            const g = ensureMagicFingerState();
-            const p = g.play;
-            if (!p || p.status !== 'playing' || p.interactionState !== 'WAIT_HAND_REMOVED') return;
-            const rt = window.magicFingerRuntime;
-            rt.handAbsentSince = 0;
-
-            if (p.pendingFinish) {
-                window.finishMagicFingerGame('score');
-                return;
-            }
-
-            p.questionIndex += 1;
-            prepareMagicFingerRound();
-            saveData();
-            window.initMagicFingerGame();
-            window.attachMagicFingerRuntimeToDOM();
         };
 
         window.flashMagicFingerSide = function(side, correct) {
@@ -4563,35 +4526,15 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             });
         };
 
-        function magicFingerPointedOption(landmarks) {
-            if (!landmarks || landmarks.length < 21) return null;
-            // Ưu tiên ĐẦU NGÓN TRỎ (landmark 8), ánh xạ vào đúng lưới đáp án 2x2 của mỗi bên.
-            const tip = landmarks[8];
-            const wrist = landmarks[0];
-            if (!tip || !wrist) return null;
-
-            // Camera hiển thị dạng gương. mirroredX chính là X mà học sinh nhìn thấy trên màn hình.
-            const mirroredX = 1 - tip.x;
-            const side = mirroredX < 0.5 ? 'left' : 'right';
-            const localX = side === 'left' ? mirroredX * 2 : (mirroredX - 0.5) * 2;
-            const localY = tip.y;
-
-            // Bỏ vùng sát mép để tránh chọn nhầm khi ngón tay mới đi vào/ra khỏi khung hình.
-            if (localX < 0.06 || localX > 0.94 || localY < 0.06 || localY > 0.94) {
-                return { side, optionIndex: -1, localX, localY };
-            }
-
-            const col = localX < 0.5 ? 0 : 1;
-            const row = localY < 0.5 ? 0 : 1;
-            return { side, optionIndex: row * 2 + col, localX, localY };
-        }
-
-        function updateMagicFingerPointerHighlight(side, optionIndex) {
-            document.querySelectorAll(`[data-mfg-option-side="${side}"]`).forEach(el => {
-                const active = Number(el.dataset.mfgOptionIndex) === Number(optionIndex);
-                el.style.outline = active ? '4px solid rgba(253,224,71,.95)' : '';
-                el.style.outlineOffset = active ? '-4px' : '';
+        function magicFingerCountRaised(landmarks) {
+            if (!landmarks || landmarks.length < 21) return 0;
+            // Chỉ tính 4 ngón: trỏ, giữa, áp út, út. Không tính ngón cái.
+            const pairs = [[8,6],[12,10],[16,14],[20,18]];
+            let count = 0;
+            pairs.forEach(([tip, pip]) => {
+                if (landmarks[tip].y < landmarks[pip].y - 0.018) count++;
             });
+            return count;
         }
 
         function processMagicFingerDetection(results) {
@@ -4599,88 +4542,47 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const p = g.play;
             if (!p || p.status !== 'playing') return;
 
-            const rt = window.magicFingerRuntime;
-            const now = Date.now();
-            const landmarksArray = Array.isArray(results?.landmarks) ? results.landmarks : [];
-            const anyHandVisible = landmarksArray.length > 0;
-
-            // Sau khi đã chọn, tuyệt đối không nhận thêm cử chỉ/đáp án nào.
-            // Chỉ trạng thái KHÔNG CÒN BÀN TAY trong 400ms mới được phép chuyển câu.
-            if (p.interactionState === 'WAIT_HAND_REMOVED' || p.roundLocked) {
-                updateMagicFingerPointerHighlight('left', -1);
-                updateMagicFingerPointerHighlight('right', -1);
-                if (anyHandVisible) {
-                    rt.handAbsentSince = 0;
-                    ['left','right'].forEach(side => {
-                        const el = document.getElementById(`mfg-detect-${side}`);
-                        if (el) el.textContent = '🔒 Đã khóa đáp án — hãy hạ/bỏ tay khỏi camera';
-                    });
-                    return;
-                }
-
-                if (!rt.handAbsentSince) rt.handAbsentSince = now;
-                const absentFor = now - rt.handAbsentSince;
-                const remain = Math.max(0, MAGIC_FINGER_HAND_REMOVED_MS - absentFor);
-                ['left','right'].forEach(side => {
-                    const el = document.getElementById(`mfg-detect-${side}`);
-                    if (el) el.textContent = remain > 0 ? `✅ Không thấy tay — giữ thêm ${remain} ms` : '✅ Đã bỏ tay — sang câu tiếp theo';
-                });
-                if (absentFor >= MAGIC_FINGER_HAND_REMOVED_MS) {
-                    // Hàm chuyển câu cập nhật state đồng bộ ngay trong frame này, nên frame sau sẽ không thể gọi lặp.
-                    window.advanceMagicFingerAfterHandRemoved();
-                }
-                return;
-            }
-
-            rt.handAbsentSince = 0;
-            if (!anyHandVisible) {
-                ['left','right'].forEach(side => {
-                    rt.detected[side] = { optionIndex: -1, since: 0, armed: true };
-                    updateMagicFingerPointerHighlight(side, -1);
-                    const el = document.getElementById(`mfg-detect-${side}`);
-                    if (el) el.textContent = '☝️ Đưa đầu ngón trỏ vào vùng đáp án';
-                });
-                return;
-            }
-
-            const candidates = { left: null, right: null };
+            const sideValues = { left: 0, right: 0 };
+            const landmarksArray = results?.landmarks || [];
             landmarksArray.forEach(landmarks => {
-                const pointed = magicFingerPointedOption(landmarks);
-                if (!pointed) return;
-                // Một bên chỉ nhận một bàn tay ổn định trong frame hiện tại.
-                if (!candidates[pointed.side]) candidates[pointed.side] = pointed;
+                const wrist = landmarks?.[0];
+                if (!wrist) return;
+                // Giao diện camera được lật gương => đổi trục X để khớp trái/phải trên màn hình.
+                const mirroredX = 1 - wrist.x;
+                const side = mirroredX < 0.5 ? 'left' : 'right';
+                sideValues[side] = Math.max(sideValues[side], magicFingerCountRaised(landmarks));
             });
 
-            ['left','right'].forEach(side => {
-                const candidate = candidates[side];
-                const det = rt.detected[side];
+            ['left', 'right'].forEach(side => {
+                const value = sideValues[side];
+                const rt = window.magicFingerRuntime.detected[side];
                 const el = document.getElementById(`mfg-detect-${side}`);
-                const optionIndex = candidate?.optionIndex ?? -1;
+                const now = Date.now();
+                const freezeUntil = p[side === 'left' ? 'leftFreezeUntil' : 'rightFreezeUntil'] || 0;
 
-                updateMagicFingerPointerHighlight(side, optionIndex);
-
-                if (optionIndex < 0 || optionIndex > 3) {
-                    det.optionIndex = -1;
-                    det.since = 0;
-                    det.armed = true;
-                    if (el) el.textContent = candidate ? '☝️ Đưa ngón trỏ vào giữa một vùng đáp án' : '☝️ Đưa đầu ngón trỏ vào vùng đáp án';
+                if (freezeUntil > now) {
+                    if (el) el.textContent = `⏳ Chờ ${Math.ceil((freezeUntil - now) / 1000)} giây`;
                     return;
                 }
 
-                if (det.optionIndex !== optionIndex) {
-                    det.optionIndex = optionIndex;
-                    det.since = now;
-                    det.armed = true;
+                if (value === 0) {
+                    rt.value = 0;
+                    rt.since = now;
+                    rt.armed = true;
+                    if (el) el.textContent = '✋ Giơ 1–4 ngón tay';
+                    return;
                 }
 
-                const holdMs = Math.max(200, Math.min(400, Number(g.settings.holdMs) || 300));
-                const heldFor = Math.max(0, now - det.since);
-                const label = String.fromCharCode(65 + optionIndex);
-                if (el) el.textContent = heldFor < holdMs ? `☝️ Đang chỉ ${label} · giữ ${Math.max(0, holdMs-heldFor)} ms` : `✅ Xác nhận ${label}`;
+                if (rt.value !== value) {
+                    rt.value = value;
+                    rt.since = now;
+                }
+                if (el) el.textContent = `Đang nhận: ${value} ngón`;
 
-                if (det.armed && heldFor >= holdMs && p.interactionState === 'READY' && !p.roundLocked) {
-                    det.armed = false;
-                    window.submitMagicFingerAnswer(side, optionIndex, 'camera');
+                const holdMs = Math.max(250, Number(g.settings.holdMs) || 650);
+                if (value >= 1 && value <= 4 && rt.armed && now - rt.since >= holdMs) {
+                    rt.armed = false;
+                    window.submitMagicFingerAnswer(side, value - 1, 'camera');
                 }
             });
         }
@@ -4742,7 +4644,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             rt.cameraStarting = true;
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: 'user' }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 60 } },
+                    video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
                     audio: false
                 });
                 rt.stream = stream;
@@ -4777,7 +4679,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                     if (video && video.readyState >= 2) {
                         drawMagicFingerCameraHalves(video);
                         const now = performance.now();
-                        if (rt.handLandmarker && video.currentTime !== rt.lastVideoTime && now - rt.lastDetectAt > MAGIC_FINGER_DETECT_INTERVAL_MS) {
+                        if (rt.handLandmarker && video.currentTime !== rt.lastVideoTime && now - rt.lastDetectAt > 90) {
                             rt.lastDetectAt = now;
                             rt.lastVideoTime = video.currentTime;
                             try {
@@ -4792,7 +4694,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 };
                 if (rt.raf) cancelAnimationFrame(rt.raf);
                 rt.raf = requestAnimationFrame(loop);
-                showToast('Camera đã sẵn sàng. Dùng đầu ngón trỏ để chỉ vào đáp án!', 'success');
+                showToast('Camera đã sẵn sàng. Giơ 1–4 ngón tay để chọn đáp án!', 'success');
             } catch (err) {
                 console.error(err);
                 if (rt.stream) rt.stream.getTracks().forEach(t => t.stop());
@@ -4814,24 +4716,22 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 try { rt.handLandmarker.close(); } catch (e) {}
                 rt.handLandmarker = null;
             }
-            rt.handAbsentSince = 0;
             ['left','right'].forEach(side => {
-                rt.detected[side] = { optionIndex: -1, since: 0, armed: true };
+                rt.detected[side] = { value: 0, since: 0, armed: true };
             });
         };
 
         window.toggleMagicFingerCamera = function() {
             const g = ensureMagicFingerState();
-            const p = g.play;
-            if (p?.status === 'playing') {
-                // Camera là bắt buộc trong gameplay để xác nhận WAIT_HAND_REMOVED.
-                if (!window.magicFingerRuntime.stream && !window.magicFingerRuntime.cameraStarting) void window.startMagicFingerCamera();
-                else showToast('Camera đang được giữ bật để nhận biết khi người chơi hạ tay.', 'info');
-                return;
+            const rt = window.magicFingerRuntime;
+            if (rt.stream) {
+                g.settings.cameraEnabled = false;
+                window.stopMagicFingerCamera(true);
+                showToast('Đã tắt camera. Bạn có thể bấm trực tiếp vào đáp án.', 'success');
+            } else {
+                g.settings.cameraEnabled = true;
+                window.startMagicFingerCamera();
             }
-            g.settings.cameraEnabled = !g.settings.cameraEnabled;
-            if (!g.settings.cameraEnabled) window.stopMagicFingerCamera(true);
-            else void window.startMagicFingerCamera();
         };
 
         window.cleanupMagicFingerGame = function(stopTimer = true) {
@@ -4911,7 +4811,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                                         <label class="space-y-1"><span class="text-xs font-bold text-red-600">Tên bên phải</span><input value="${mfgEsc(g.settings.team2Name)}" oninput="updateMagicFingerSetting('team2Name', this.value)" class="w-full px-4 py-2.5 rounded-xl border border-red-200 font-bold outline-none focus:border-red-400"></label>
                                         <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Số sao để thắng</span><input type="number" min="1" max="20" value="${g.settings.starsToWin}" oninput="updateMagicFingerSetting('starsToWin', this.value, 'number')" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-amber-400"></label>
                                         <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Phạt khi sai (giây)</span><input type="number" min="0" max="10" value="${g.settings.wrongFreeze}" oninput="updateMagicFingerSetting('wrongFreeze', this.value, 'number')" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-amber-400"></label>
-                                        <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Giữ ngón trỏ để xác nhận (ms)</span><input type="number" min="200" max="400" step="25" value="${g.settings.holdMs}" oninput="updateMagicFingerSetting('holdMs', this.value, 'number')" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-amber-400"></label>
+                                        <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Giữ tay để xác nhận (ms)</span><input type="number" min="250" max="2000" step="50" value="${g.settings.holdMs}" oninput="updateMagicFingerSetting('holdMs', this.value, 'number')" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none focus:border-amber-400"></label>
                                         <label class="space-y-1"><span class="text-xs font-bold text-slate-500">Thứ tự câu hỏi</span><select onchange="updateMagicFingerSetting('questionOrder', this.value)" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-bold outline-none"><option value="random" ${g.settings.questionOrder==='random'?'selected':''}>Ngẫu nhiên</option><option value="sequential" ${g.settings.questionOrder==='sequential'?'selected':''}>Theo thứ tự</option></select></label>
                                     </div>
                                     <div class="flex flex-wrap gap-3 mt-4 pt-4 border-t border-slate-100">
@@ -4959,8 +4859,8 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const timerSec = p.timer % 60;
             const starsLeft = Math.max(0, g.settings.starsToWin - Math.max(p.leftScore, p.rightScore));
             const renderOptions = (side, opts, palette) => opts.map((o, i) => `
-                <button data-mfg-option-side="${side}" data-mfg-option-index="${i}" onclick="submitMagicFingerAnswer('${side}', ${i})" ${p.roundLocked ? 'disabled' : ''} class="group relative rounded-xl border-2 ${palette.border} ${palette.bg} ${p.selectedSide===side && Number(p.selectedOptionIndex)===i ? 'ring-4 ring-amber-300 brightness-110' : ''} ${p.roundLocked ? 'cursor-not-allowed' : 'hover:brightness-110'} transition-all min-h-[92px] flex items-center justify-center p-3 overflow-hidden shadow-sm">
-                    <span class="absolute top-2 left-2 text-[10px] font-black ${palette.badgeText} ${palette.badgeBg} px-2 py-1 rounded-full">${String.fromCharCode(65+i)}</span>
+                <button onclick="submitMagicFingerAnswer('${side}', ${i})" class="group relative rounded-xl border-2 ${palette.border} ${palette.bg} hover:brightness-110 transition-all min-h-[92px] flex items-center justify-center p-3 overflow-hidden shadow-sm">
+                    <span class="absolute top-2 left-2 text-[10px] font-black ${palette.badgeText} ${palette.badgeBg} px-2 py-1 rounded-full">${i+1} ngón</span>
                     <span class="text-xl md:text-2xl font-black text-white text-center leading-tight drop-shadow-sm mt-3">${mfgEsc(o.text)}</span>
                 </button>`).join('');
 
@@ -5001,7 +4901,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                         <div class="flex items-center gap-2 min-w-0 w-[31%] justify-end">
                             <span class="bg-white/100 border-2 border-white rounded-full min-w-10 h-8 px-3 flex items-center justify-center font-black">${p.rightScore}</span>
                             <span class="text-[11px] md:text-sm font-black truncate">${mfgEsc(g.settings.team2Name)}</span><span class="text-lg">⭐</span>
-                            <button onclick="toggleMagicFingerCamera()" class="hidden md:flex w-8 h-8 rounded-lg bg-slate-900/20 hover:bg-slate-900/30 items-center justify-center" title="Camera tự động bật khi chơi"><i class="ph-fill ph-video-camera"></i></button>
+                            <button onclick="toggleMagicFingerCamera()" class="hidden md:flex w-8 h-8 rounded-lg bg-slate-900/20 hover:bg-slate-900/30 items-center justify-center" title="Bật/tắt camera"><i class="ph-fill ph-video-camera"></i></button>
                             <button data-interactive-fullscreen-btn onclick="toggleMagicFingerFullscreen()" class="flex w-8 h-8 rounded-lg bg-slate-900/20 hover:bg-slate-900/30 items-center justify-center" title="Mở toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-out"></i></button>
                             <button onclick="backToMagicFingerConfig()" class="h-8 px-2.5 rounded-lg bg-red-600/75 hover:bg-red-600 flex items-center justify-center gap-1 text-white text-xs font-black" title="Thoát trò chơi"><i class="ph-bold ph-x"></i><span>THOÁT</span></button>
                         </div>
@@ -5009,14 +4909,13 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
 
                     <div class="relative z-10 bg-[#fff9df] text-slate-900 border-b-4 border-orange-400 px-4 py-3 text-center shadow-md">
                         <div class="text-xl md:text-3xl font-black leading-tight">${mfgEsc(q?.text || 'Câu hỏi')}</div>
-                        ${p.interactionState === 'WAIT_HAND_REMOVED' ? `<div class="mt-2 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-xs md:text-sm font-black"><i class="ph-fill ph-hand"></i> ĐÃ KHÓA ĐÁP ÁN · HẠ/BỎ TAY KHỎI CAMERA ĐỂ SANG CÂU TIẾP</div>` : ''}
                     </div>
 
                     <div class="relative z-10 flex-1 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_190px_minmax(0,1fr)] gap-3 p-3 min-h-0">
                         <div id="mfg-side-left" class="rounded-2xl border-4 border-blue-400 bg-blue-700/70 shadow-[0_0_0_2px_rgba(255,255,255,.3)] overflow-hidden flex flex-col min-h-[500px] transition-all">
                             <div class="relative h-[43%] min-h-[210px] bg-black overflow-hidden border-b-4 border-blue-300">
                                 <canvas id="mfg-canvas-left" class="w-full h-full block bg-black"></canvas>
-                                <div id="mfg-detect-left" class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/65 backdrop-blur px-4 py-2 rounded-full text-xs font-black whitespace-nowrap border border-white/20">${g.settings.cameraEnabled ? 'Đang mở camera...' : 'Đang mở camera...'}</div>
+                                <div id="mfg-detect-left" class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/65 backdrop-blur px-4 py-2 rounded-full text-xs font-black whitespace-nowrap border border-white/20">${g.settings.cameraEnabled ? 'Đang mở camera...' : 'Bấm đáp án để chơi'}</div>
                                 <div class="absolute top-3 left-3 bg-blue-500/90 px-3 py-1.5 rounded-full text-xs font-black shadow">BÊN TRÁI</div>
                             </div>
                             <div class="grid grid-cols-2 gap-2 p-2 flex-1 bg-blue-600/85">${renderOptions('left', p.leftOptions, {border:'border-blue-300',bg:'bg-blue-600',badgeText:'text-blue-900',badgeBg:'bg-blue-100'})}</div>
@@ -5026,13 +4925,13 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                             <div class="text-7xl drop-shadow-[0_8px_10px_rgba(0,0,0,.35)] animate-bounce-slight">🎒</div>
                             <div class="flex flex-wrap justify-center gap-1 max-w-[160px] my-3">${Array.from({length:g.settings.starsToWin}, (_,i) => `<span class="text-xl ${i < Math.max(p.leftScore,p.rightScore) ? 'opacity-30' : ''}">⭐</span>`).join('')}</div>
                             <div class="text-amber-200 font-black text-sm drop-shadow">còn ${starsLeft} sao để thắng</div>
-                            <div class="mt-5 text-[11px] text-white/70 font-bold leading-relaxed">Dùng ngón trỏ<br>chỉ vào A/B/C/D</div>
+                            <div class="mt-5 text-[11px] text-white/70 font-bold leading-relaxed">Giơ 1–4 ngón<br>và giữ ổn định</div>
                         </div>
 
                         <div id="mfg-side-right" class="rounded-2xl border-4 border-red-400 bg-red-700/70 shadow-[0_0_0_2px_rgba(255,255,255,.3)] overflow-hidden flex flex-col min-h-[500px] transition-all">
                             <div class="relative h-[43%] min-h-[210px] bg-black overflow-hidden border-b-4 border-red-300">
                                 <canvas id="mfg-canvas-right" class="w-full h-full block bg-black"></canvas>
-                                <div id="mfg-detect-right" class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/65 backdrop-blur px-4 py-2 rounded-full text-xs font-black whitespace-nowrap border border-white/20">${g.settings.cameraEnabled ? 'Đang mở camera...' : 'Đang mở camera...'}</div>
+                                <div id="mfg-detect-right" class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/65 backdrop-blur px-4 py-2 rounded-full text-xs font-black whitespace-nowrap border border-white/20">${g.settings.cameraEnabled ? 'Đang mở camera...' : 'Bấm đáp án để chơi'}</div>
                                 <div class="absolute top-3 right-3 bg-red-500/90 px-3 py-1.5 rounded-full text-xs font-black shadow">BÊN PHẢI</div>
                             </div>
                             <div class="grid grid-cols-2 gap-2 p-2 flex-1 bg-red-600/85">${renderOptions('right', p.rightOptions, {border:'border-red-300',bg:'bg-red-600',badgeText:'text-red-900',badgeBg:'bg-red-100'})}</div>
@@ -5044,7 +4943,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             window.updateInteractiveGameFullscreenButtons();
             window.attachMagicFingerRuntimeToDOM();
             if (p.status === 'playing' && g.settings.cameraEnabled && !window.magicFingerRuntime.stream && !window.magicFingerRuntime.cameraStarting) {
-                void window.startMagicFingerCamera();
+                setTimeout(() => window.startMagicFingerCamera(), 120);
             }
         };
 
