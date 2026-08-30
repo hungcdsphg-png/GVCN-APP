@@ -4208,10 +4208,15 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             running: false,
             cameraStarting: false,
             detected: {
-                left:  { value: 0, since: 0, armed: true },
-                right: { value: 0, since: 0, armed: true }
+                left:  { value: 0, since: 0, armed: true, present: false, removedSince: 0, blockedValue: 0 },
+                right: { value: 0, since: 0, armed: true, present: false, removedSince: 0, blockedValue: 0 }
             }
         };
+        const MAGIC_FINGER_HAND_REMOVED_MS = 400; // trong khoảng yêu cầu 300–500ms
+        ['left','right'].forEach(side => {
+            const d = window.magicFingerRuntime.detected?.[side] || {};
+            window.magicFingerRuntime.detected[side] = { value:0, since:0, armed:true, present:false, removedSince:0, blockedValue:0, ...d };
+        });
 
         function mfgEsc(value) {
             return String(value ?? '')
@@ -4318,13 +4323,16 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             p.leftOptions = g.settings.shuffleAnswers ? magicFingerShuffle(left) : left;
             p.rightOptions = g.settings.shuffleAnswers ? magicFingerShuffle(right) : right;
             p.roundLocked = false;
+            p.roundState = 'WAIT_ANSWER';
+            p.correctSide = null;
+            p.correctOptionIndex = null;
             p.leftFreezeUntil = 0;
             p.rightFreezeUntil = 0;
             p.roundMessage = '';
 
             const rt = window.magicFingerRuntime;
-            rt.detected.left = { value: 0, since: 0, armed: true };
-            rt.detected.right = { value: 0, since: 0, armed: true };
+            rt.detected.left = { value: 0, since: 0, armed: true, present: false, removedSince: 0, blockedValue: 0 };
+            rt.detected.right = { value: 0, since: 0, armed: true, present: false, removedSince: 0, blockedValue: 0 };
         }
 
         window.updateMagicFingerSetting = function(key, value, type = 'string') {
@@ -4417,6 +4425,9 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 leftOptions: [], rightOptions: [],
                 leftFreezeUntil: 0, rightFreezeUntil: 0,
                 roundLocked: false,
+                roundState: 'WAIT_ANSWER',
+                correctSide: null,
+                correctOptionIndex: null,
                 roundMessage: ''
             };
             prepareMagicFingerRound();
@@ -4464,43 +4475,97 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         window.submitMagicFingerAnswer = function(side, optionIndex, source = 'click') {
             const g = ensureMagicFingerState();
             const p = g.play;
-            if (!p || p.status !== 'playing' || p.roundLocked) return;
+            if (!p || p.status !== 'playing') return;
+            if ((p.roundState || 'WAIT_ANSWER') !== 'WAIT_ANSWER' || p.roundLocked) return;
+
             const now = Date.now();
             const freezeKey = side === 'left' ? 'leftFreezeUntil' : 'rightFreezeUntil';
-            if ((p[freezeKey] || 0) > now) return;
+            const rtSide = window.magicFingerRuntime.detected[side];
+            // Sau câu sai chỉ chặn việc giữ NGUYÊN đúng ngón tay sai cũ trong thời gian phạt.
+            // Nếu học sinh đổi sang ngón/đáp án khác thì được thử lại ngay trên cùng câu.
+            if ((p[freezeKey] || 0) > now && rtSide?.blockedValue === Number(optionIndex) + 1) return;
 
             const opts = side === 'left' ? p.leftOptions : p.rightOptions;
             const option = opts?.[optionIndex];
             if (!option) return;
 
             if (option.isCorrect) {
+                // WAIT_ANSWER -> LOCK_CORRECT_ANSWER: khóa tuyệt đối ngay khi đúng.
                 p.roundLocked = true;
+                p.roundState = 'LOCK_CORRECT_ANSWER';
+                p.correctSide = side;
+                p.correctOptionIndex = Number(optionIndex);
                 if (side === 'left') p.leftScore += 1; else p.rightScore += 1;
-                p.roundMessage = `${side === 'left' ? g.settings.team1Name : g.settings.team2Name} trả lời đúng!`;
+                p.roundMessage = `${side === 'left' ? g.settings.team1Name : g.settings.team2Name} trả lời đúng! Hãy hạ tay xuống để sang câu tiếp theo.`;
+                if (rtSide) {
+                    rtSide.armed = false;
+                    rtSide.removedSince = 0;
+                    rtSide.blockedValue = 0;
+                }
                 magicFingerSound('correct');
                 window.flashMagicFingerSide(side, true);
+                saveData();
 
-                if (p.leftScore >= g.settings.starsToWin || p.rightScore >= g.settings.starsToWin) {
-                    setTimeout(() => window.finishMagicFingerGame('score'), 450);
-                    return;
-                }
+                const label = document.getElementById(`mfg-detect-${side}`);
+                if (label) label.textContent = '✅ Đã đúng · hãy hạ tay xuống';
 
+                // LOCK_CORRECT_ANSWER -> WAIT_HAND_REMOVED. Không đổi câu ở đây.
                 setTimeout(() => {
-                    if (!g.play || g.play.status !== 'playing') return;
-                    g.play.questionIndex += 1;
-                    prepareMagicFingerRound();
-                    window.initMagicFingerGame();
-                    window.attachMagicFingerRuntimeToDOM();
-                }, 600);
+                    const g2 = ensureMagicFingerState();
+                    const p2 = g2.play;
+                    if (!p2 || p2.status !== 'playing' || p2.roundState !== 'LOCK_CORRECT_ANSWER') return;
+                    p2.roundState = 'WAIT_HAND_REMOVED';
+                    saveData();
+                    const l = document.getElementById(`mfg-detect-${side}`);
+                    if (l) l.textContent = '✋ Đã khóa đáp án đúng · hạ tay để sang câu';
+
+                    // Nếu đang chơi bằng click hoặc camera đang tắt thì coi như tay đã rời vùng nhận diện.
+                    const mustWaitForCameraHand = source === 'camera' && g2.settings.cameraEnabled && !!window.magicFingerRuntime.stream;
+                    if (!mustWaitForCameraHand) {
+                        const rt2 = window.magicFingerRuntime.detected[side];
+                        if (rt2) rt2.removedSince = Date.now();
+                        setTimeout(() => window.advanceMagicFingerAfterHandRemoved(side), MAGIC_FINGER_HAND_REMOVED_MS + 20);
+                    }
+                }, 90);
             } else {
-                p[freezeKey] = now + Math.max(0, Number(g.settings.wrongFreeze) || 2) * 1000;
-                p.roundMessage = 'Chưa đúng, thử lại nhé!';
+                // Sai: giữ nguyên WAIT_ANSWER và nguyên câu hỏi. Cho phép đổi ngón để thử lại.
+                p.roundState = 'WAIT_ANSWER';
+                p.roundLocked = false;
+                p[freezeKey] = now + Math.max(0, Number(g.settings.wrongFreeze) || 0) * 1000;
+                p.roundMessage = 'Chưa đúng, đổi ngón tay/đáp án khác và thử lại nhé!';
                 magicFingerSound('wrong');
                 window.flashMagicFingerSide(side, false);
-                window.updateMagicFingerFreezeLabels();
-                const rtSide = window.magicFingerRuntime.detected[side];
-                if (rtSide) rtSide.armed = false;
+                if (rtSide) {
+                    rtSide.armed = false;               // không ăn lặp lại cùng một ngón đang giữ
+                    rtSide.blockedValue = Number(optionIndex) + 1;
+                    rtSide.since = now;
+                }
+                const label = document.getElementById(`mfg-detect-${side}`);
+                if (label) label.textContent = '❌ Chưa đúng · đổi ngón để thử lại';
+                saveData();
             }
+        };
+
+        window.advanceMagicFingerAfterHandRemoved = function(side) {
+            const g = ensureMagicFingerState();
+            const p = g.play;
+            if (!p || p.status !== 'playing' || p.roundState !== 'WAIT_HAND_REMOVED') return;
+            if (p.correctSide && side && p.correctSide !== side) return;
+
+            // Khóa trạng thái trước khi chuyển để một frame camera không gọi lặp nhiều lần.
+            p.roundState = 'ADVANCING';
+            const reachedTarget = p.leftScore >= Number(g.settings.starsToWin) || p.rightScore >= Number(g.settings.starsToWin);
+            if (reachedTarget) {
+                saveData();
+                window.finishMagicFingerGame('score');
+                return;
+            }
+
+            p.questionIndex += 1;
+            prepareMagicFingerRound();
+            saveData();
+            window.initMagicFingerGame();
+            window.attachMagicFingerRuntimeToDOM();
         };
 
         window.flashMagicFingerSide = function(side, correct) {
@@ -4519,10 +4584,25 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             const p = g.play;
             if (!p) return;
             const now = Date.now();
+
+            if (p.roundState === 'WAIT_HAND_REMOVED' || p.roundState === 'LOCK_CORRECT_ANSWER') {
+                ['left', 'right'].forEach(side => {
+                    const el = document.getElementById(`mfg-detect-${side}`);
+                    if (!el) return;
+                    if (side === p.correctSide) el.textContent = '✋ Đã đúng · hạ tay xuống để sang câu';
+                    else el.textContent = '⏸ Đang chờ người trả lời đúng hạ tay';
+                });
+                return;
+            }
+
             ['left', 'right'].forEach(side => {
                 const until = p[side === 'left' ? 'leftFreezeUntil' : 'rightFreezeUntil'] || 0;
+                const rt = window.magicFingerRuntime.detected[side];
                 const el = document.getElementById(`mfg-detect-${side}`);
-                if (el && until > now) el.textContent = `⏳ Chờ ${Math.ceil((until - now) / 1000)} giây`;
+                // Chỉ báo phạt nếu học sinh vẫn giữ chính ngón tay sai vừa chọn.
+                if (el && until > now && rt?.blockedValue && rt.value === rt.blockedValue) {
+                    el.textContent = `❌ Đổi ngón để thử lại · ${Math.ceil((until - now) / 1000)}s`;
+                }
             });
         };
 
@@ -4543,6 +4623,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if (!p || p.status !== 'playing') return;
 
             const sideValues = { left: 0, right: 0 };
+            const sidePresent = { left: false, right: false };
             const landmarksArray = results?.landmarks || [];
             landmarksArray.forEach(landmarks => {
                 const wrist = landmarks?.[0];
@@ -4550,18 +4631,67 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 // Giao diện camera được lật gương => đổi trục X để khớp trái/phải trên màn hình.
                 const mirroredX = 1 - wrist.x;
                 const side = mirroredX < 0.5 ? 'left' : 'right';
+                sidePresent[side] = true;
                 sideValues[side] = Math.max(sideValues[side], magicFingerCountRaised(landmarks));
             });
 
+            const now = Date.now();
+            const roundState = p.roundState || 'WAIT_ANSWER';
+
+            // Sau khi đã đúng: bỏ qua hoàn toàn mọi ngón tay/đáp án khác.
+            // Chỉ theo dõi việc BÀN TAY CỦA BÊN TRẢ LỜI ĐÚNG rời vùng nhận diện đủ 400ms.
+            if (roundState === 'LOCK_CORRECT_ANSWER' || roundState === 'WAIT_HAND_REMOVED' || roundState === 'ADVANCING') {
+                ['left', 'right'].forEach(side => {
+                    const rt = window.magicFingerRuntime.detected[side];
+                    const el = document.getElementById(`mfg-detect-${side}`);
+                    rt.present = !!sidePresent[side];
+
+                    if (side !== p.correctSide) {
+                        if (el) el.textContent = '⏸ Đang chờ người trả lời đúng hạ tay';
+                        return;
+                    }
+
+                    if (roundState !== 'WAIT_HAND_REMOVED') {
+                        rt.removedSince = 0;
+                        if (el) el.textContent = '✅ Đã khóa đáp án đúng';
+                        return;
+                    }
+
+                    if (sidePresent[side]) {
+                        // Tay vẫn còn trước camera -> tuyệt đối không chuyển câu.
+                        rt.removedSince = 0;
+                        if (el) el.textContent = '✋ Đã đúng · hãy hạ tay xuống';
+                        return;
+                    }
+
+                    if (!rt.removedSince) rt.removedSince = now;
+                    const elapsed = now - rt.removedSince;
+                    const remain = Math.max(0, MAGIC_FINGER_HAND_REMOVED_MS - elapsed);
+                    if (el) el.textContent = remain > 0 ? `✅ Đã hạ tay · giữ ${Math.ceil(remain / 100) / 10}s` : '✅ Đã hạ tay · sang câu mới';
+                    if (elapsed >= MAGIC_FINGER_HAND_REMOVED_MS) {
+                        rt.removedSince = 0;
+                        window.advanceMagicFingerAfterHandRemoved(side);
+                    }
+                });
+                return;
+            }
+
+            // WAIT_ANSWER: nhận câu trả lời. Sai vẫn ở nguyên câu và có thể đổi thẳng sang ngón khác.
             ['left', 'right'].forEach(side => {
                 const value = sideValues[side];
+                const present = sidePresent[side];
                 const rt = window.magicFingerRuntime.detected[side];
                 const el = document.getElementById(`mfg-detect-${side}`);
-                const now = Date.now();
                 const freezeUntil = p[side === 'left' ? 'leftFreezeUntil' : 'rightFreezeUntil'] || 0;
+                rt.present = present;
+                rt.removedSince = 0;
 
-                if (freezeUntil > now) {
-                    if (el) el.textContent = `⏳ Chờ ${Math.ceil((freezeUntil - now) / 1000)} giây`;
+                if (!present) {
+                    rt.value = 0;
+                    rt.since = now;
+                    rt.armed = true;
+                    if (freezeUntil <= now) rt.blockedValue = 0;
+                    if (el) el.textContent = '✋ Giơ 1–4 ngón tay';
                     return;
                 }
 
@@ -4573,12 +4703,22 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                     return;
                 }
 
+                // Đổi số ngón = một lựa chọn mới. Đây là chìa khóa để sai rồi đổi ngón thử lại
+                // mà KHÔNG cần hạ tay và KHÔNG đổi câu.
                 if (rt.value !== value) {
                     rt.value = value;
                     rt.since = now;
+                    rt.armed = true;
                 }
-                if (el) el.textContent = `Đang nhận: ${value} ngón`;
 
+                // Nếu vẫn giữ đúng ngón sai cũ trong thời gian phạt thì không ăn lặp phím/đáp án.
+                if (freezeUntil > now && rt.blockedValue === value) {
+                    if (el) el.textContent = `❌ Sai · đổi ngón khác để thử lại`;
+                    return;
+                }
+                if (freezeUntil <= now && rt.blockedValue === value) rt.blockedValue = 0;
+
+                if (el) el.textContent = `Đang nhận: ${value} ngón`;
                 const holdMs = Math.max(250, Number(g.settings.holdMs) || 650);
                 if (value >= 1 && value <= 4 && rt.armed && now - rt.since >= holdMs) {
                     rt.armed = false;
@@ -4717,7 +4857,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 rt.handLandmarker = null;
             }
             ['left','right'].forEach(side => {
-                rt.detected[side] = { value: 0, since: 0, armed: true };
+                rt.detected[side] = { value: 0, since: 0, armed: true, present: false, removedSince: 0, blockedValue: 0 };
             });
         };
 
