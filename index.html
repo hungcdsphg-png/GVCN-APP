@@ -2095,7 +2095,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                 'quizz-nghieng-dau': 'Quizz Nghiêng Đầu',
                 'quet-the-qr': 'Quét Thẻ QR',
                 'space-race': '🚀 Phi thuyền vũ trụ',
-                'millionaire': '💎 Ai là triệu phú',
+                'millionaire': '💎 Ai là học bá',
                 'mine-expert': '🧨 Chuyên Gia Gỡ Mìn'
             };
             const millionaireAiMode = targetGame === 'millionaire';
@@ -2205,7 +2205,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
             if (gameId === 'ngon-tay-than-ky') return { name: 'Ngón Tay Thần Kỳ', icon: 'ph-hand-pointing' };
             if (gameId === 'quizz-nghieng-dau') return { name: 'Quizz Nghiêng Đầu', icon: 'ph-smiley-wink' };
             if (gameId === 'space-race') return { name: 'Phi thuyền vũ trụ', icon: 'ph-rocket-launch' };
-            if (gameId === 'millionaire') return { name: 'Ai là triệu phú', icon: 'ph-diamond' };
+            if (gameId === 'millionaire') return { name: 'Ai là học bá', icon: 'ph-diamond' };
             if (gameId === 'mine-expert') return { name: 'Chuyên Gia Gỡ Mìn', icon: 'ph-shield-chevron' };
             return { name: 'Quét Thẻ QR', icon: 'ph-qr-code' };
         }
@@ -3745,7 +3745,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         };
 
         // =============================================================
-        // 💎 AI LÀ TRIỆU PHÚ - GAMESHOW KIẾN THỨC 1 NGƯỜI CHƠI
+        // 💎 AI LÀ HỌC BÁ - GAMESHOW KIẾN THỨC 1 NGƯỜI CHƠI
         // - Tái sử dụng Gemini API + Thư viện câu hỏi dùng chung.
         // - 10–15 câu, độ khó tăng dần theo thứ tự bộ câu hỏi.
         // - 3 trợ giúp: 50/50, Hỏi bạn bè, Hỏi khán giả (không bảo đảm đúng).
@@ -3883,7 +3883,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         window.clearMillionaireActiveQuestions = function() {
             const g = ensureMillionaireState();
             if (!g.questions.length) return;
-            if (!confirm('Xóa toàn bộ câu hỏi đang dùng trong Ai là triệu phú? Thư viện câu hỏi vẫn được giữ nguyên.')) return;
+            if (!confirm('Xóa toàn bộ câu hỏi đang dùng trong Ai là học bá? Thư viện câu hỏi vẫn được giữ nguyên.')) return;
             g.questions = [];
             saveData(); window.initMillionaireGame();
         };
@@ -4032,20 +4032,12 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
         window.useMillionaireFriend = function() {
             const g=ensureMillionaireState(),p=g.play;
             if(!p||p.status!=='playing'||p.phase!=='ready'||p.lifelines.friend)return;
-            const q=p.questions[p.index], correct=millionaireGetCorrectIndex(q), d=millionaireDifficulty01(p);
-            const available=[0,1,2,3].filter(i=>!p.eliminated.includes(i));
-            const probCorrect=Math.max(.48, .86 - d*.34);
-            let suggestion;
-            if (Math.random()<probCorrect && available.includes(correct)) suggestion=correct;
-            else {
-                const wrong=available.filter(i=>i!==correct);
-                suggestion=wrong[Math.floor(Math.random()*wrong.length)] ?? correct;
-            }
-            let confidence=Math.round((suggestion===correct ? 68+Math.random()*24 : 48+Math.random()*27) - d*10);
-            confidence=Math.max(42,Math.min(92,confidence));
+            // Hỏi bạn bè chỉ được dùng 1 lần nhưng không tiết lộ/gợi ý bất kỳ đáp án nào.
             p.lifelines.friend=true;
-            p.helpOverlay={type:'friend', suggestion, confidence};
-            millionaireFx('help'); saveData(); window.initMillionaireGame();
+            p.helpOverlay=null;
+            millionaireFx('help');
+            saveData();
+            window.initMillionaireGame();
         };
 
         function millionaireAudiencePercentages(p,q) {
@@ -4090,7 +4082,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                     <div class="max-w-6xl mx-auto space-y-5 animate-fade-in">
                         <div class="rounded-[2rem] bg-gradient-to-r from-[#111c4e] via-[#39246f] to-[#111c4e] text-white p-6 md:p-8 shadow-xl relative overflow-hidden">
                             <div class="absolute inset-0 opacity-30" style="background-image:radial-gradient(circle at 20% 30%,#7dd3fc 0 1px,transparent 2px),radial-gradient(circle at 80% 60%,#f0abfc 0 1px,transparent 2px);background-size:48px 48px,64px 64px"></div>
-                            <div class="relative z-10 flex items-center gap-4"><div class="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shadow-inner"><i class="ph-fill ph-diamond text-4xl text-cyan-300"></i></div><div><div class="text-xs font-black tracking-[.2em] text-cyan-200 uppercase">Gameshow kiến thức · 1 người chơi</div><h2 class="text-3xl md:text-4xl font-black mt-1">AI LÀ TRIỆU PHÚ</h2><p class="text-sm text-indigo-100 mt-2">10–15 câu tăng dần độ khó · 3 quyền trợ giúp · dùng chung Gemini AI và Thư viện câu hỏi</p></div></div>
+                            <div class="relative z-10 flex items-center gap-4"><div class="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shadow-inner"><i class="ph-fill ph-diamond text-4xl text-cyan-300"></i></div><div><div class="text-xs font-black tracking-[.2em] text-cyan-200 uppercase">Gameshow kiến thức · 1 người chơi</div><h2 class="text-3xl md:text-4xl font-black mt-1">AI LÀ HỌC BÁ</h2><p class="text-sm text-indigo-100 mt-2">10–15 câu tăng dần độ khó · 3 quyền trợ giúp · dùng chung Gemini AI và Thư viện câu hỏi</p></div></div>
                         </div>
                         <div class="grid grid-cols-1 xl:grid-cols-[1.05fr_.95fr] gap-5">
                             <div class="bg-white rounded-[2rem] border border-indigo-100 shadow-sm p-5 md:p-6 space-y-5">
@@ -4124,10 +4116,8 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
 
         function millionaireRenderHelpOverlay(p,q) {
             const ov=p.helpOverlay; if(!ov) return '';
-            if(ov.type==='friend') {
-                const letter=String.fromCharCode(65+ov.suggestion);
-                return `<div class="absolute inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4"><div class="max-w-lg w-full rounded-[2rem] border border-cyan-300/30 bg-[#111a42] text-white shadow-2xl p-6 md:p-8 text-center"><div class="w-16 h-16 mx-auto rounded-full bg-cyan-400/15 text-cyan-300 flex items-center justify-center mb-4"><i class="ph-fill ph-users-three text-4xl"></i></div><h3 class="text-2xl font-black">Ý kiến bạn bè</h3><p class="mt-4 text-lg text-indigo-100">“Mình nghĩ đáp án <b class="text-cyan-300 text-2xl">${letter}</b> – khoảng <b>${ov.confidence}%</b> chắc chắn.”</p><div class="mt-3 text-xs text-indigo-300">Đây chỉ là gợi ý mô phỏng, có thể đúng hoặc sai.</div><button onclick="closeMillionaireHelp()" class="mt-6 px-7 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-xl">ĐÃ HIỂU</button></div></div>`;
-            }
+            // Tương thích dữ liệu lượt chơi cũ: tuyệt đối không hiển thị nội dung Hỏi bạn bè.
+            if(ov.type==='friend') return '';
             if(ov.type==='audience') {
                 const vals=ov.percentages||[25,25,25,25], max=Math.max(...vals);
                 return `<div class="absolute inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4"><div class="max-w-2xl w-full rounded-[2rem] border border-fuchsia-300/30 bg-[#111a42] text-white shadow-2xl p-6 md:p-8"><div class="text-center"><div class="w-16 h-16 mx-auto rounded-full bg-fuchsia-400/15 text-fuchsia-300 flex items-center justify-center mb-3"><i class="ph-fill ph-chart-bar text-4xl"></i></div><h3 class="text-2xl font-black">Ý kiến khán giả</h3><p class="text-xs text-indigo-300 mt-1">Kết quả mô phỏng, không đảm bảo đáp án cao nhất là đáp án đúng.</p></div><div class="mt-6 grid grid-cols-4 gap-3 items-end h-48">${vals.map((v,i)=>`<div class="h-full flex flex-col justify-end items-center gap-2"><div class="font-black text-lg ${v===max?'text-yellow-300':'text-white'}">${v}%</div><div class="w-16 max-w-full rounded-t-xl bg-gradient-to-t ${i===0?'from-blue-600 to-cyan-400':i===1?'from-violet-600 to-fuchsia-400':i===2?'from-amber-600 to-yellow-300':'from-emerald-600 to-lime-300'} transition-all" style="height:${Math.max(4,v)}%"></div><div class="w-10 h-10 rounded-full border border-white/20 bg-white/10 flex items-center justify-center font-black">${String.fromCharCode(65+i)}</div></div>`).join('')}</div><div class="text-center"><button onclick="closeMillionaireHelp()" class="mt-6 px-7 py-3 bg-fuchsia-500 hover:bg-fuchsia-400 text-white font-black rounded-xl">ĐÓNG</button></div></div></div>`;
@@ -4171,7 +4161,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                         <div class="absolute inset-0 opacity-40 pointer-events-none" style="background-image:radial-gradient(circle,#fff 0 1px,transparent 1.4px);background-size:54px 54px"></div>
                         <header class="relative z-20 min-h-[58px] px-3 md:px-5 py-2.5 border-b border-white/10 bg-[#07112f]/85 backdrop-blur flex items-center justify-between gap-2">
                             <button onclick="stopMillionaireGame(false)" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-black text-xs md:text-sm flex items-center gap-2"><i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">Về sảnh</span></button>
-                            <div class="text-center min-w-0"><div class="font-black text-sm md:text-lg tracking-wide truncate">💎 AI LÀ TRIỆU PHÚ</div><div class="text-[10px] md:text-xs text-cyan-200 font-bold">Câu ${p.index+1}/${p.questions.length} · Đúng ${answeredLabel} · ${millionaireFormatReward(p.currentReward)}</div></div>
+                            <div class="text-center min-w-0"><div class="font-black text-sm md:text-lg tracking-wide truncate">💎 AI LÀ HỌC BÁ</div><div class="text-[10px] md:text-xs text-cyan-200 font-bold">Câu ${p.index+1}/${p.questions.length} · Đúng ${answeredLabel} · ${millionaireFormatReward(p.currentReward)}</div></div>
                             <div class="flex items-center gap-2"><button onclick="toggleMillionaireSound()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10" title="Âm thanh"><i class="ph-fill ${g.settings.soundEnabled?'ph-speaker-high':'ph-speaker-slash'}"></i></button><button data-interactive-fullscreen-btn onclick="toggleInteractiveGameFullscreen()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10" title="Toàn màn hình"><i data-fullscreen-icon class="ph-bold ph-corners-out"></i></button></div>
                         </header>
                         <div class="relative z-10 flex-1 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_230px] gap-3 md:gap-4 p-3 md:p-5 min-h-0">
@@ -4181,7 +4171,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                                 <section class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">${optionHtml}</section>
                                 <section class="grid grid-cols-3 gap-2 md:gap-3">
                                     <button onclick="useMillionaireFifty()" ${p.lifelines.fifty||p.phase!=='ready'?'disabled':''} class="py-3 md:py-4 px-2 rounded-2xl border ${p.lifelines.fifty?'border-white/5 bg-white/5 text-white/25':'border-cyan-300/25 bg-cyan-400/10 hover:bg-cyan-400/20 text-cyan-100'} font-black text-xs md:text-sm transition-all"><i class="ph-fill ph-scissors text-lg md:text-xl block md:inline md:mr-2"></i>50/50</button>
-                                    <button onclick="useMillionaireFriend()" ${p.lifelines.friend||p.phase!=='ready'?'disabled':''} class="py-3 md:py-4 px-2 rounded-2xl border ${p.lifelines.friend?'border-white/5 bg-white/5 text-white/25':'border-violet-300/25 bg-violet-400/10 hover:bg-violet-400/20 text-violet-100'} font-black text-xs md:text-sm transition-all"><i class="ph-fill ph-users-three text-lg md:text-xl block md:inline md:mr-2"></i>Hỏi bạn bè</button>
+                                    <button onclick="useMillionaireFriend()" ${p.lifelines.friend||p.phase!=='ready'?'disabled':''} class="py-3 md:py-4 px-2 rounded-2xl border ${p.lifelines.friend?'border-white/5 bg-slate-500/10 text-white/30 opacity-40 cursor-not-allowed':'border-violet-300/25 bg-violet-400/10 hover:bg-violet-400/20 text-violet-100'} font-black text-xs md:text-sm transition-[background-color,border-color,color,opacity] duration-200"><i class="ph-fill ph-users-three text-lg md:text-xl block md:inline md:mr-2"></i>${p.lifelines.friend?'Đã sử dụng':'Hỏi bạn bè'}</button>
                                     <button onclick="useMillionaireAudience()" ${p.lifelines.audience||p.phase!=='ready'?'disabled':''} class="py-3 md:py-4 px-2 rounded-2xl border ${p.lifelines.audience?'border-white/5 bg-white/5 text-white/25':'border-fuchsia-300/25 bg-fuchsia-400/10 hover:bg-fuchsia-400/20 text-fuchsia-100'} font-black text-xs md:text-sm transition-all"><i class="ph-fill ph-chart-bar text-lg md:text-xl block md:inline md:mr-2"></i>Hỏi khán giả</button>
                                 </section>
                                 ${p.phase==='locked'?'<div class="text-center font-black text-yellow-300 animate-pulse"><i class="ph-fill ph-lock-key mr-2"></i>ĐÃ KHÓA ĐÁP ÁN · ĐANG KIỂM TRA...</div>':''}
@@ -8687,7 +8677,7 @@ Yêu cầu bắt buộc: mỗi câu có đúng 4 lựa chọn, chỉ 1 đáp án
                             <i class="ph-fill ph-rocket-launch text-xl"></i> 🚀 Phi thuyền vũ trụ
                         </button>
                         <button onclick="switchGame('millionaire')" class="px-6 py-3.5 bg-white border-2 border-violet-200 text-violet-700 font-bold rounded-2xl shadow-sm hover:shadow-md hover:bg-violet-50 hover:border-violet-300 transition-all flex items-center gap-2 ${state.activeGame === 'millionaire' ? 'ring-4 ring-violet-100 bg-violet-50' : ''}">
-                            <i class="ph-fill ph-diamond text-xl"></i> 💎 Ai là triệu phú
+                            <i class="ph-fill ph-diamond text-xl"></i> 💎 Ai là học bá
                         </button>
                         <button onclick="switchGame('mine-expert')" class="px-6 py-3.5 bg-white border-2 border-lime-200 text-lime-800 font-bold rounded-2xl shadow-sm hover:shadow-md hover:bg-lime-50 hover:border-lime-300 transition-all flex items-center gap-2 ${state.activeGame === 'mine-expert' ? 'ring-4 ring-lime-100 bg-lime-50' : ''}">
                             <i class="ph-fill ph-shield-chevron text-xl"></i> 🧨 Chuyên Gia Gỡ Mìn
