@@ -1054,6 +1054,7 @@
         .top-nav-item[data-menu-id="dong-ho"],
         .top-nav-item[data-menu-id="cai-dat"] { --nav-accent:#7c3aed; --nav-soft:#f2eeff; }
         .top-nav-item[data-menu-id="game-menu"] { --nav-accent:#4f46e5; --nav-soft:#eef2ff; }
+        .top-nav-item[data-menu-id="nhan-xet"] { --nav-accent:#0f766e; --nav-soft:#ecfdf5; }
 
         #main-content.app-main-content {
             padding: 18px 20px 28px !important;
@@ -1373,6 +1374,27 @@
 @media(prefers-reduced-motion:reduce){.mine-expert-character,.mine-answer-node{transition-duration:.15s!important}.mine-expert-character *,.mine-explosion *,.mine-expert-map,.mine-map-world,.mine-bg-layer{animation-duration:.01ms!important;animation-iteration-count:1!important}}
 </style>
 
+
+<style id="student-review-menu-styles">
+/* =============================================================
+   📝 NHẬN XÉT HỌC SINH - MENU + 4 CHỨC NĂNG (UI ONLY)
+   Không tạo dữ liệu học sinh riêng, chỉ tái sử dụng state hiện có.
+   ============================================================= */
+.review-page{max-width:1580px;margin:0 auto;padding:2px 0 34px;animation:reviewFade .28s ease both}
+.review-hero{position:relative;overflow:hidden;border:1px solid rgba(148,163,184,.16);border-radius:30px;padding:26px 28px;background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(240,253,250,.92) 48%,rgba(238,242,255,.92));box-shadow:0 18px 46px rgba(51,65,85,.08)}
+.review-hero:before,.review-hero:after{content:"";position:absolute;border-radius:999px;pointer-events:none}.review-hero:before{width:230px;height:230px;right:-78px;top:-105px;background:radial-gradient(circle,rgba(45,212,191,.20),transparent 68%)}.review-hero:after{width:180px;height:180px;left:-70px;bottom:-105px;background:radial-gradient(circle,rgba(129,140,248,.16),transparent 68%)}
+.review-hero-inner{position:relative;z-index:1;display:flex;align-items:center;gap:18px}.review-hero-icon{width:66px;height:66px;flex:0 0 66px;border-radius:22px;display:grid;place-items:center;background:linear-gradient(145deg,#ccfbf1,#e0e7ff);color:#0f766e;font-size:31px;box-shadow:inset 0 1px rgba(255,255,255,.9),0 10px 24px rgba(15,118,110,.13)}
+.review-eyebrow{font-size:11px;line-height:1;font-weight:1000;letter-spacing:.16em;text-transform:uppercase;color:#0f766e}.review-title{margin-top:7px;font-size:clamp(25px,3vw,38px);line-height:1.08;font-weight:1000;color:#172033}.review-subtitle{margin-top:9px;max-width:900px;font-size:14px;line-height:1.55;font-weight:650;color:#64748b}
+.review-context{position:relative;z-index:1;margin-top:19px;display:flex;flex-wrap:wrap;gap:9px}.review-chip{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:7px 11px;border-radius:13px;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.74);backdrop-filter:blur(8px);color:#475569;font-size:11px;font-weight:850}.review-chip i{font-size:15px;color:#0f766e}
+.review-grid{margin-top:18px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.review-card{--review-accent:#0ea5e9;--review-soft:#f0f9ff;position:relative;overflow:hidden;min-height:190px;width:100%;border:1px solid rgba(148,163,184,.17);border-radius:27px;padding:22px;text-align:left;background:linear-gradient(145deg,rgba(255,255,255,.98),var(--review-soft));box-shadow:0 12px 32px rgba(51,65,85,.065);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;cursor:pointer}.review-card:before{content:"";position:absolute;width:120px;height:120px;right:-38px;top:-45px;border-radius:999px;background:radial-gradient(circle,color-mix(in srgb,var(--review-accent) 18%,transparent),transparent 70%);pointer-events:none}.review-card:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--review-accent) 32%,#e2e8f0);box-shadow:0 20px 42px rgba(51,65,85,.10)}.review-card:active{transform:translateY(-1px)}
+.review-card[data-tone="sky"]{--review-accent:#0284c7;--review-soft:#f0f9ff}.review-card[data-tone="violet"]{--review-accent:#7c3aed;--review-soft:#f5f3ff}.review-card[data-tone="amber"]{--review-accent:#d97706;--review-soft:#fffbeb}.review-card[data-tone="rose"]{--review-accent:#db2777;--review-soft:#fff1f2}
+.review-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.review-card-icon{width:52px;height:52px;flex:0 0 52px;border-radius:18px;display:grid;place-items:center;background:color-mix(in srgb,var(--review-accent) 11%,white);color:var(--review-accent);font-size:25px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--review-accent) 11%,transparent)}.review-card-arrow{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.82);color:#94a3b8;transition:transform .18s ease,color .18s ease}.review-card:hover .review-card-arrow{transform:translateX(3px);color:var(--review-accent)}.review-card-title{margin-top:19px;font-size:18px;line-height:1.24;font-weight:1000;color:#1e293b}.review-card-desc{margin-top:8px;font-size:12.5px;line-height:1.5;font-weight:600;color:#64748b}
+.review-feature-shell{max-width:1240px;margin:0 auto;padding:2px 0 34px;animation:reviewFade .24s ease both}.review-feature-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.review-back-btn{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:9px 13px;border-radius:14px;background:#fff;border:1px solid rgba(148,163,184,.18);color:#475569;font-size:12px;font-weight:900;box-shadow:0 6px 18px rgba(51,65,85,.05);transition:.18s ease}.review-back-btn:hover{transform:translateX(-2px);border-color:#99f6e4;color:#0f766e}.review-feature-card{position:relative;overflow:hidden;border:1px solid rgba(148,163,184,.17);border-radius:30px;background:rgba(255,255,255,.95);box-shadow:0 18px 48px rgba(51,65,85,.08);padding:28px}.review-feature-head{display:flex;align-items:center;gap:17px}.review-feature-icon{width:62px;height:62px;flex:0 0 62px;border-radius:21px;display:grid;place-items:center;background:linear-gradient(145deg,#ecfeff,#ecfdf5);color:#0f766e;font-size:29px}.review-feature-title{font-size:clamp(22px,2.7vw,32px);font-weight:1000;line-height:1.15;color:#1e293b}.review-feature-desc{margin-top:6px;color:#64748b;font-size:13px;line-height:1.5;font-weight:650}.review-placeholder{margin-top:22px;border:1.5px dashed #cbd5e1;border-radius:24px;padding:32px 24px;text-align:center;background:linear-gradient(145deg,#f8fafc,#f0fdfa)}.review-placeholder i{font-size:42px;color:#5eead4}.review-placeholder h3{margin-top:10px;font-size:17px;font-weight:1000;color:#334155}.review-placeholder p{max-width:680px;margin:7px auto 0;color:#64748b;font-size:12.5px;line-height:1.55;font-weight:600}
+@keyframes reviewFade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:900px){.review-grid{grid-template-columns:1fr}.review-card{min-height:170px}.review-hero{padding:22px}.review-feature-card{padding:22px}}
+@media(max-width:640px){.review-hero{border-radius:23px;padding:18px}.review-hero-inner{align-items:flex-start;gap:12px}.review-hero-icon{width:50px;height:50px;flex-basis:50px;border-radius:16px;font-size:24px}.review-title{font-size:24px}.review-subtitle{font-size:12.5px}.review-grid{gap:12px;margin-top:12px}.review-card{border-radius:22px;padding:18px;min-height:158px}.review-card-title{margin-top:14px;font-size:16px}.review-card-desc{font-size:12px}.review-card-icon{width:46px;height:46px;flex-basis:46px;border-radius:15px;font-size:22px}.review-feature-card{border-radius:23px;padding:18px}.review-feature-head{align-items:flex-start;gap:12px}.review-feature-icon{width:49px;height:49px;flex-basis:49px;border-radius:16px;font-size:23px}.review-placeholder{padding:25px 16px}.review-chip{font-size:10px}}
+</style>
+
 </head>
 
 <body>
@@ -1476,6 +1498,7 @@
             { id: 'vong-quay', icon: 'ph-magic-wand', label: 'Vòng quay' },
             { id: 'dong-ho', icon: 'ph-timer', label: 'Công cụ' },
             { id: 'game-menu', icon: 'ph-game-controller', label: 'Góc Trò Chơi' },
+            { id: 'nhan-xet', icon: 'ph-note-pencil', label: 'Nhận xét' },
             { id: 'xep-hang', icon: 'ph-trophy', label: 'Tuyên Dương' },
             { id: 'bao-cao', icon: 'ph-chart-bar', label: 'Sổ theo dõi' },
             { id: 'cai-dat', icon: 'ph-gear', label: 'Cài đặt' }
@@ -1646,6 +1669,13 @@
             return `<img src="${finalUrl}" class="${classes} rounded-full object-cover flex-shrink-0 border-2 border-white shadow-sm">`;
         }
 
+        function isReviewRoute(tabId) { return tabId === 'nhan-xet' || String(tabId || '').startsWith('nhan-xet-'); }
+        function getMenuItemForTab(tabId) {
+            if (isReviewRoute(tabId)) return menuItems.find(m => m.id === 'nhan-xet') || menuItems[0];
+            return menuItems.find(m => m.id === tabId) || menuItems[0];
+        }
+        function isMenuItemActive(itemId, tabId = state.currentTab) { return itemId === 'nhan-xet' ? isReviewRoute(tabId) : tabId === itemId; }
+
         function switchTab(tabId) { if (state.currentTab === 'game-menu' && tabId !== 'game-menu' && window.cleanupCurrentGame) window.cleanupCurrentGame(null); state.currentTab = tabId; renderLayout(); }
         function closeModal(id) { document.getElementById('modal-container').innerHTML = ''; }
 
@@ -1654,7 +1684,7 @@
                 if (item.id === 'dong-ho') {
                     return `<button onclick="openTimerDrawer()" class="w-full flex items-center gap-4 px-6 py-3.5 mb-2 rounded-2xl transition-all duration-300 text-indigo-200 hover:bg-white/10 hover:text-white font-semibold group"><div class="p-2 rounded-xl bg-white/5 group-hover:bg-white/20 transition-colors"><i class="ph-fill ${item.icon} text-xl"></i></div><span class="text-sm tracking-wide">${item.label}</span></button>`;
                 }
-                const isActive = state.currentTab === item.id;
+                const isActive = isMenuItemActive(item.id);
                 return `
                     <button onclick="switchTab('${item.id}')" class="w-full flex items-center gap-4 px-6 py-3.5 mb-2 rounded-2xl transition-all duration-300 group relative overflow-hidden ${isActive ? 'text-white' : 'text-indigo-200 hover:text-white hover:bg-white/5'}">
                         ${isActive ? '<div class="absolute inset-0 bg-gradient-to-r from-blueAccent to-indigo-600 opacity-90"></div><div class="absolute inset-0 bg-[url(\'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNykiLz48L3N2Zz4=\')]"></div>' : ''}
@@ -1735,7 +1765,7 @@
         }
 
         function renderHeader() {
-            const currentMenu = menuItems.find(m => m.id === state.currentTab) || menuItems[0];
+            const currentMenu = getMenuItemForTab(state.currentTab);
             const syncStatus = window.useCloud
                 ? `<div class="app-header-action sync cloud" title="Đã đồng bộ"><i class="ph-fill ph-cloud-check text-sm"></i><span class="action-label">Đã đồng bộ</span></div>`
                 : `<div class="app-header-action sync local" title="Lưu cục bộ"><i class="ph-fill ph-hard-drives text-sm"></i><span class="action-label">Lưu cục bộ</span></div>`;
@@ -1745,7 +1775,7 @@
                 : `<i class="ph-fill ph-student text-xl"></i>`;
 
             const menuHtml = menuItems.map(item => {
-                const isActive = state.currentTab === item.id;
+                const isActive = isMenuItemActive(item.id);
                 const action = item.id === 'dong-ho' ? `openTimerDrawer()` : `switchTab('${item.id}')`;
                 return `
                     <button onclick="${action}"
@@ -1767,6 +1797,86 @@
             `;
         }
 
+        // =============================================================
+        // 📝 NHẬN XÉT HỌC SINH - HUB + 4 ROUTE/COMPONENT RIÊNG
+        // Chỉ dựng giao diện/điều hướng. Không tạo state học sinh hay database mới.
+        // =============================================================
+        const REVIEW_FEATURES = [
+            { id:'nhan-xet-thuong-xuyen', tone:'sky', icon:'ph-calendar-pencil', title:'Nhập đánh giá thường xuyên', desc:'Chuẩn bị khu vực nhập nhận xét theo tháng/môn học và theo dõi tiến bộ thường xuyên của học sinh.' },
+            { id:'nhan-xet-dinh-ky-mon', tone:'violet', icon:'ph-books', title:'Đánh giá định kỳ môn học và hoạt động giáo dục', desc:'Khu vực dành cho đánh giá định kỳ các môn học và hoạt động giáo dục theo lớp hiện tại.' },
+            { id:'nhan-xet-nang-luc-pham-chat', tone:'amber', icon:'ph-medal', title:'Đánh giá định kỳ năng lực và phẩm chất', desc:'Chuẩn bị nhập mức đánh giá và nhận xét năng lực, phẩm chất của từng học sinh.' },
+            { id:'nhan-xet-hoc-ba-gvcn', tone:'rose', icon:'ph-notebook', title:'Nhập nhận xét in học bạ của GVCN', desc:'Khu vực tổng hợp nhận xét của giáo viên chủ nhiệm để phục vụ nội dung in học bạ.' }
+        ];
+
+        function getReviewFeature(routeId) { return REVIEW_FEATURES.find(x => x.id === routeId) || REVIEW_FEATURES[0]; }
+
+        function renderReviewContextChips() {
+            const className = state.admin?.className || 'LỚP HỌC';
+            const studentCount = Array.isArray(state.students) ? state.students.length : 0;
+            return `<div class="review-context">
+                <span class="review-chip"><i class="ph-fill ph-student"></i>${mfgEsc(className)}</span>
+                <span class="review-chip"><i class="ph-fill ph-users-three"></i>${studentCount} học sinh</span>
+                <span class="review-chip"><i class="ph-fill ph-database"></i>Dùng dữ liệu lớp hiện tại</span>
+            </div>`;
+        }
+
+        function renderViewNhanXet() {
+            const cards = REVIEW_FEATURES.map(item => `
+                <button type="button" onclick="switchTab('${item.id}')" class="review-card" data-tone="${item.tone}">
+                    <div class="review-card-top">
+                        <span class="review-card-icon"><i class="ph-fill ${item.icon}"></i></span>
+                        <span class="review-card-arrow"><i class="ph-bold ph-arrow-right"></i></span>
+                    </div>
+                    <div class="review-card-title">${mfgEsc(item.title)}</div>
+                    <div class="review-card-desc">${mfgEsc(item.desc)}</div>
+                </button>`).join('');
+            return `<section class="review-page">
+                <div class="review-hero">
+                    <div class="review-hero-inner">
+                        <div class="review-hero-icon"><i class="ph-fill ph-note-pencil"></i></div>
+                        <div>
+                            <div class="review-eyebrow">Sổ đánh giá học sinh</div>
+                            <h1 class="review-title">📝 NHẬN XÉT HỌC SINH</h1>
+                            <p class="review-subtitle">Chọn loại đánh giá cần thực hiện. Bốn khu vực được tách thành route/component riêng để có thể bổ sung bảng nhập liệu và AI tạo nhận xét ở các bước tiếp theo.</p>
+                        </div>
+                    </div>
+                    ${renderReviewContextChips()}
+                </div>
+                <div class="review-grid">${cards}</div>
+            </section>`;
+        }
+
+        function renderReviewFeatureShell(routeId) {
+            const item = getReviewFeature(routeId);
+            const className = state.admin?.className || 'LỚP HỌC';
+            const studentCount = Array.isArray(state.students) ? state.students.length : 0;
+            return `<section class="review-feature-shell">
+                <div class="review-feature-toolbar">
+                    <button type="button" onclick="switchTab('nhan-xet')" class="review-back-btn"><i class="ph-bold ph-arrow-left"></i> Quay lại Nhận xét</button>
+                </div>
+                <div class="review-feature-card">
+                    <div class="review-feature-head">
+                        <div class="review-feature-icon"><i class="ph-fill ${item.icon}"></i></div>
+                        <div>
+                            <h2 class="review-feature-title">${mfgEsc(item.title)}</h2>
+                            <p class="review-feature-desc">${mfgEsc(item.desc)}</p>
+                        </div>
+                    </div>
+                    ${renderReviewContextChips()}
+                    <div class="review-placeholder">
+                        <i class="ph-duotone ph-layout"></i>
+                        <h3>Khung chức năng đã sẵn sàng để mở rộng</h3>
+                        <p>Route này đang tái sử dụng lớp <b>${mfgEsc(className)}</b> và danh sách <b>${studentCount} học sinh</b> hiện có. Chưa tạo danh sách học sinh, LocalStorage hay cấu trúc database mới.</p>
+                    </div>
+                </div>
+            </section>`;
+        }
+
+        function renderViewNhanXetThuongXuyen() { return renderReviewFeatureShell('nhan-xet-thuong-xuyen'); }
+        function renderViewNhanXetDinhKyMon() { return renderReviewFeatureShell('nhan-xet-dinh-ky-mon'); }
+        function renderViewNhanXetNangLucPhamChat() { return renderReviewFeatureShell('nhan-xet-nang-luc-pham-chat'); }
+        function renderViewNhanXetHocBaGVCN() { return renderReviewFeatureShell('nhan-xet-hoc-ba-gvcn'); }
+
         function renderLayout() {
             const app = document.getElementById('app');
             let contentHtml = '';
@@ -1779,6 +1889,11 @@
                 case 'diem-danh': contentHtml = renderViewDiemDanh(); break;
                 case 'vong-quay': contentHtml = renderViewVongQuay(); break;
                 case 'game-menu': contentHtml = renderViewGameMenu(); break;
+                case 'nhan-xet': contentHtml = renderViewNhanXet(); break;
+                case 'nhan-xet-thuong-xuyen': contentHtml = renderViewNhanXetThuongXuyen(); break;
+                case 'nhan-xet-dinh-ky-mon': contentHtml = renderViewNhanXetDinhKyMon(); break;
+                case 'nhan-xet-nang-luc-pham-chat': contentHtml = renderViewNhanXetNangLucPhamChat(); break;
+                case 'nhan-xet-hoc-ba-gvcn': contentHtml = renderViewNhanXetHocBaGVCN(); break;
                 case 'xep-hang': contentHtml = renderViewXepHang(); break;
                 case 'bao-cao': contentHtml = renderViewBaoCao(); break;
                 case 'cai-dat': contentHtml = renderViewCaiDat(); break;
