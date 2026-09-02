@@ -156,6 +156,60 @@ async function generateWithFallback(apiKey, params) {
   throw lastError || new Error('Không tạo được câu hỏi hợp lệ.');
 }
 
+
+function regularEvaluationSchema() {
+  return {
+    type: 'object',
+    properties: {
+      monHoc: { type:'object', properties:{ ma:{type:'string'}, noiDung:{type:'string'} }, required:['ma','noiDung'], additionalProperties:false },
+      nangLucChung: { type:'object', properties:{ ma:{type:'string'}, noiDung:{type:'string'} }, required:['ma','noiDung'], additionalProperties:false },
+      nangLucDacThu: { type:'object', properties:{ ma:{type:'string'}, noiDung:{type:'string'} }, required:['ma','noiDung'], additionalProperties:false },
+      phamChat: { type:'object', properties:{ ma:{type:'string'}, noiDung:{type:'string'} }, required:['ma','noiDung'], additionalProperties:false }
+    },
+    required:['monHoc','nangLucChung','nangLucDacThu','phamChat'],
+    additionalProperties:false
+  };
+}
+
+function normalizeRegularEvaluationResult(obj) {
+  const short = (v,n) => String(v || '').slice(0,n);
+  const one = (v) => ({ ma:short(v?.ma,20), noiDung:short(v?.noiDung,250) });
+  return { monHoc:one(obj?.monHoc), nangLucChung:one(obj?.nangLucChung), nangLucDacThu:one(obj?.nangLucDacThu), phamChat:one(obj?.phamChat) };
+}
+
+async function generateRegularEvaluation(apiKey, prompt) {
+  const system = `Bạn là trợ lý hỗ trợ giáo viên tiểu học Việt Nam viết nhận xét đánh giá thường xuyên học sinh. Mỗi nội dung dưới 250 ký tự; tuyệt đối không đưa tên riêng học sinh; dùng “Em”; nội dung tích cực, bám sát mức Tốt/Đạt/Cần cố gắng; nếu có KHDH thì lồng ghép phù hợp vào nhận xét môn học; không tự tạo mã nhận xét. Chỉ trả JSON.`;
+  let lastError;
+  for (const model of MODEL_CANDIDATES) {
+    try {
+      const data = await googleGenerate({ apiKey, model, body:{
+        contents:[{parts:[{text:String(prompt || '')}]}],
+        systemInstruction:{parts:[{text:system}]},
+        generationConfig:{ responseMimeType:'application/json', responseJsonSchema:regularEvaluationSchema(), maxOutputTokens:900, thinkingConfig:{thinkingLevel:thinkingLevelFor(model)} }
+      }});
+      const raw = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
+      if (!raw) throw Object.assign(new Error('Gemini không trả về nhận xét.'), { contentInvalid:true });
+      let parsed; try { parsed = JSON.parse(raw.replace(/```json/gi,'').replace(/```/g,'').trim()); } catch { throw Object.assign(new Error('JSON nhận xét không hợp lệ.'), {contentInvalid:true}); }
+      return { model, result:normalizeRegularEvaluationResult(parsed) };
+    } catch (err) { lastError=err; if(!shouldTryNextModel(err)) break; }
+  }
+  throw lastError || new Error('Không tạo được nhận xét.');
+}
+
+async function analyzeRegularEvaluationKHDH(apiKey, { documentText, prompt }) {
+  let lastError;
+  const text = String(documentText || '').slice(0,60000);
+  for (const model of MODEL_CANDIDATES) {
+    try {
+      const data = await googleGenerate({ apiKey, model, body:{ contents:[{parts:[{text:`${text}\n\n${String(prompt||'')}`}]}], generationConfig:{maxOutputTokens:800,thinkingConfig:{thinkingLevel:thinkingLevelFor(model)}} }});
+      const result = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim() || '';
+      if (!result) throw Object.assign(new Error('Gemini không trả về nội dung KHDH.'), {contentInvalid:true});
+      return { model, text:result };
+    } catch(err) { lastError=err; if(!shouldTryNextModel(err)) break; }
+  }
+  throw lastError || new Error('Không phân tích được KHDH.');
+}
+
 export default async function handler(req, res) {
   setCors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -169,6 +223,14 @@ export default async function handler(req, res) {
     if (action === 'validate') {
       const model = await validateApiKey(apiKey);
       return res.status(200).json({ ok: true, model });
+    }
+    if (action === 'regular-evaluation-comment') {
+      const { model, result } = await generateRegularEvaluation(apiKey, body.prompt);
+      return res.status(200).json({ ok:true, model, result });
+    }
+    if (action === 'regular-evaluation-khdh') {
+      const { model, text } = await analyzeRegularEvaluationKHDH(apiKey, body);
+      return res.status(200).json({ ok:true, model, text });
     }
     if (action !== 'generate') return res.status(400).json({ error: 'action không hợp lệ.' });
     const topic = String(body.topic || '').trim();
