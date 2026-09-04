@@ -1,5 +1,29 @@
 # GVCN - Quét QR qua link Vercel, không dùng Firebase để kết nối
 
+## Tích hợp Đánh giá định kỳ môn học và hoạt động giáo dục (04/09/2026)
+
+- Mở tại **Nhận xét → Đánh giá định kỳ môn học và hoạt động giáo dục**.
+- Hỗ trợ khối 1–5, đầy đủ môn học và 4 thời điểm: Giữa kì I, Cuối kì I, Giữa kì II, Cuối kì II.
+- Nhập dữ liệu học sinh từ Excel; tự dò sheet theo môn học.
+- Đọc PPCT/KHDH từ Excel, Word hoặc PDF, trích xuất bài học và dùng làm căn cứ tạo nhận xét.
+- Tạo ngân hàng nhận xét bằng Gemini AI, tự gán theo mức T/H/C và điểm kiểm tra định kỳ.
+- Xuất bảng nhận xét và ngân hàng mẫu ra Excel.
+- Module nằm trong thư mục `periodic-evaluation/`, tự động dùng chung Gemini API Key được cấu hình tại **Góc Trò Chơi** và không có phần nhập API riêng.
+
+## Tích hợp Đánh giá định kỳ năng lực và phẩm chất (04/09/2026)
+
+- Mở tại **Nhận xét → Đánh giá định kỳ năng lực và phẩm chất**.
+- Quản lý dữ liệu học sinh, năng lực chung, năng lực đặc thù và phẩm chất chủ yếu.
+- Tạo thư viện mẫu nhận xét bằng Gemini AI, tự điền nhận xét theo mức T/Đ/C và xuất Excel.
+- Module nằm trong thư mục `competency-quality-evaluation/`, tự động dùng chung Gemini API Key tại **Góc Trò Chơi** và không có phần nhập API riêng.
+
+## Tích hợp Nhập nhận xét in học bạ của GVCN (04/09/2026)
+
+- Mở tại **Nhận xét → Nhập nhận xét in học bạ của GVCN**.
+- Nhập file tổng hợp kết quả giáo dục và PPCT từ Excel/PDF để tạo nhận xét học bạ cá nhân hóa.
+- Tạo nhận xét AI cho toàn lớp, chỉnh sửa trực tiếp và xuất file Excel.
+- Module nằm trong thư mục `report-card-comments/`, tự động dùng chung Gemini API Key tại **Góc Trò Chơi** và không có phần nhập API riêng.
+
 ## Luồng sử dụng
 
 1. Đẩy **toàn bộ thư mục này** lên repository GitHub đang nối với Vercel.
